@@ -1,0 +1,11 @@
+{
+  "files": 106,
+  "source_hashes_checked": 94,
+  "shader_historical_binary_matches_embedded_header": true,
+  "known_secret_patterns_found": false,
+  "binaries_included": false,
+  "game_generated_included": false,
+  "offline_payload_included": false,
+  "build_tested": false,
+  "publication_performed": false
+}

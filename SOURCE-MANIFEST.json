@@ -1,0 +1,472 @@
+[
+  {
+    "file": "app/common/diag_hooks.cpp",
+    "origin": "parity-full/src/diag_hooks.cpp",
+    "sha256": "2a6a1f6863ce2d2010470dccdfbb0a69bc357748fc031a9c6ddf4a3763ec2f90"
+  },
+  {
+    "file": "app/common/fps_overlay.cpp",
+    "origin": "parity-full/src/fps_overlay.cpp",
+    "sha256": "b3f112b3a9ed2760fbd08afaa7a703b36d43e315bae3c1b39c888ca19eb34371"
+  },
+  {
+    "file": "app/common/fps_overlay.h",
+    "origin": "parity-full/src/fps_overlay.h",
+    "sha256": "3eba40aae0e2ef0c0a372f626584be426fa58d2aae8083e9f074063f6eb77fc3"
+  },
+  {
+    "file": "app/common/launcher.cpp",
+    "origin": "parity-full/src/launcher.cpp",
+    "sha256": "46003c59d183409042c5d810c7ebbe15f380f2b0dd30eb720460f2e0a903f77b"
+  },
+  {
+    "file": "app/common/launcher_entry.cpp",
+    "origin": "parity-full/src/launcher_entry.cpp",
+    "sha256": "c7634cf422d3109341a9482cad7b889937aa673c749269e4f176740a6e5998e0"
+  },
+  {
+    "file": "app/common/launcher_linux.cpp",
+    "origin": "parity-full/src/launcher_linux.cpp",
+    "sha256": "51a264fa08db8632ceb01a891082a0347c6cef7dc58fb75a7e91792c065aa7b3"
+  },
+  {
+    "file": "app/common/main.cpp",
+    "origin": "parity-full/src/main.cpp",
+    "sha256": "065db13ba2af64863d6edb3d7abfedf33f0aab09f970e9cd0b4672f67398c085"
+  },
+  {
+    "file": "app/common/native_compile_support.h",
+    "origin": "parity-full/src/native_compile_support.h",
+    "sha256": "eb1bce326fc20bacdcb9d124afa64f281bfbf6cea4087d16d1f80c9967ae0970"
+  },
+  {
+    "file": "app/common/native_jmpbuf.cpp",
+    "origin": "parity-full/src/native_jmpbuf.cpp",
+    "sha256": "173335671f3d51ccf80990c4cb74aa2fd45facffff24b5e21b35545f4e24ca3f"
+  },
+  {
+    "file": "app/common/native_lock_check.cpp",
+    "origin": "parity-full/src/native_lock_check.cpp",
+    "sha256": "8556694109f5e3eb98dcc2475f0ab899cbe94fe2a356d87d535dd996d7fb6a44"
+  },
+  {
+    "file": "app/common/renderdoc_app.h",
+    "origin": "parity-full/src/renderdoc_app.h",
+    "sha256": "b7005e7dc34c3635046868bbd76d81b9b055aede0f56daa0bd39fedee0639ffb"
+  },
+  {
+    "file": "app/common/session_recorder.h",
+    "origin": "parity-full/src/session_recorder.h",
+    "sha256": "1ab50822047d99f162a6210b4b2989044a0b4c1e785d2b511a927fd8d86444fd"
+  },
+  {
+    "file": "app/common/shadow_precise.inc",
+    "origin": "parity-full/src/shadow_precise.inc",
+    "sha256": "14af593ed836c4e1bbef33eba166af502a69f2cdfb21c7b87b19c204f9238d3c"
+  },
+  {
+    "file": "app/common/ufc_caf_diagnostics.cpp",
+    "origin": "parity-full/src/ufc_caf_diagnostics.cpp",
+    "sha256": "693746a2a08aa93664196bbc45fd38cca4c4002940c383d23b163fa2f099306a"
+  },
+  {
+    "file": "app/common/ufc_dlc.h",
+    "origin": "parity-full/src/ufc_dlc.h",
+    "sha256": "0c419948300f09d3299c1c8c886e4bd757ffcd6ced2915f4ff742353a53882c0"
+  },
+  {
+    "file": "app/common/ufc_frame_limiter.h",
+    "origin": "parity-full/src/ufc_frame_limiter.h",
+    "sha256": "1e5251b5245f3d4d1d26f0b2bb75c47713ac58f149aba14acf792c631e81c059"
+  },
+  {
+    "file": "app/common/ufc_iso.h",
+    "origin": "parity-full/src/ufc_iso.h",
+    "sha256": "78c3868b159535f4f4f40d0e9d8fa4be7be8c64fbf5943ad41af49dc642c4449"
+  },
+  {
+    "file": "app/common/ufc_language.cpp",
+    "origin": "parity-full/src/ufc_language.cpp",
+    "sha256": "1fc2559420e5f10b98b951cb69cfb5959935f98b8c06bfd6a86db6f72b045a9b"
+  },
+  {
+    "file": "app/common/ufc_launcher_ui.cpp",
+    "origin": "parity-full/src/ufc_launcher_ui.cpp",
+    "sha256": "4951b3fae03f3f697d74968e355ff527256f93688ef7e3d2e28e564141b8f036"
+  },
+  {
+    "file": "app/common/ufc_launcher_ui.h",
+    "origin": "parity-full/src/ufc_launcher_ui.h",
+    "sha256": "d05cac3e0f46312194bbac10e953111f24b5734ac8c633ba4c70902003826090"
+  },
+  {
+    "file": "app/common/ufc_library.h",
+    "origin": "parity-full/src/ufc_library.h",
+    "sha256": "0364bfce76ce73ca3972e9a0eed6b0dffc1fcc6f38dd2e94f706910a950eedb0"
+  },
+  {
+    "file": "app/common/ufc_linux_crash.h",
+    "origin": "parity-full/src/ufc_linux_crash.h",
+    "sha256": "318f6002f8d18aa155db510190924eb740fa4ddac1f86a70288489f554fe2efe"
+  },
+  {
+    "file": "app/common/ufc_linux_gpu_metrics.h",
+    "origin": "parity-full/src/ufc_linux_gpu_metrics.h",
+    "sha256": "3abcfce269e6fcee54f6693313001593e1323bcce275b186655ed0f1bd900603"
+  },
+  {
+    "file": "app/common/ufc_linux_guard.h",
+    "origin": "parity-full/src/ufc_linux_guard.h",
+    "sha256": "9a200e6c9a3608081f6f6a66187a502c1bceef5b1bc6addd8c023aa88797edc3"
+  },
+  {
+    "file": "app/common/ufc_linux_native.h",
+    "origin": "parity-full/src/ufc_linux_native.h",
+    "sha256": "001091986914ed3ccf4ff21f025ea830685f5e9b18db45c69ea77f8916ed6ec9"
+  },
+  {
+    "file": "app/common/ufc_localization.h",
+    "origin": "parity-full/src/ufc_localization.h",
+    "sha256": "96eed8eb400bfda027b2437b24b5279884d363adab04f8d07ecb09a415bdc213"
+  },
+  {
+    "file": "app/common/ufc_offline_models.cpp",
+    "origin": "parity-full/src/ufc_offline_models.cpp",
+    "sha256": "73adcef5751106c86b1faa52da68743df2ddc96840cc29d73087496fd44e4394"
+  },
+  {
+    "file": "app/common/ufc_preserve.h",
+    "origin": "parity-full/src/ufc_preserve.h",
+    "sha256": "acc4cf7312430379840ccca7903b8027d5a983038527681efd93b02c0b84e42a"
+  },
+  {
+    "file": "app/common/ufc_renderdoc_capture.h",
+    "origin": "parity-full/src/ufc_renderdoc_capture.h",
+    "sha256": "5a56e45e3912107573e75e59362ac51c7e41d34dd90fddb86aba43d699dc446e"
+  },
+  {
+    "file": "app/common/ufc_resolution.h",
+    "origin": "parity-full/src/ufc_resolution.h",
+    "sha256": "b35b46809edc63894e98ad04e94ab8334540ca456ea533b8d35909780033fab3"
+  },
+  {
+    "file": "app/common/ufc_session.h",
+    "origin": "parity-full/src/ufc_session.h",
+    "sha256": "ee0b0c541503643faf219bef31b007f02c3f232769a28ef5608a23fc67d52f2e"
+  },
+  {
+    "file": "app/common/ufc_steam.h",
+    "origin": "parity-full/src/ufc_steam.h",
+    "sha256": "dc513a3919aab3654c258f7b1bb2c9f7b274dd3910ad3924873a756fc761b0cb"
+  },
+  {
+    "file": "app/common/ufc_test_input.cpp",
+    "origin": "parity-full/src/ufc_test_input.cpp",
+    "sha256": "05f3ad0c55ac11c0f3df244db2e66a179187bdb1876262e8beb2b432a422e13c"
+  },
+  {
+    "file": "app/common/ufc_text_encoding.h",
+    "origin": "parity-full/src/ufc_text_encoding.h",
+    "sha256": "cd44850ee8b7924ac0535cae9e1cc09a393c10a05328a12c0db64e88fa39fd1f"
+  },
+  {
+    "file": "app/common/ufc_visual_fidelity.cpp",
+    "origin": "parity-full/src/ufc_visual_fidelity.cpp",
+    "sha256": "b03eb280e55ac565000f0a7852528908fac9e67d202a0122258e3cd771b424a2"
+  },
+  {
+    "file": "app/common/ufc_wait_diag.h",
+    "origin": "parity-full/src/ufc_wait_diag.h",
+    "sha256": "bf54415c8ad68822c0e01c0ed1cd3710568116c0b6e2492f82a1e700dba01ca1"
+  },
+  {
+    "file": "app/variants/windows/reborn/main.cpp",
+    "origin": "r8-input-lock/build9final/windows/reborn/main.cpp",
+    "sha256": "587e3551571aee977caefbd17ba1d1378b8f4c6d2f90fd5164758633ee213ea4"
+  },
+  {
+    "file": "app/variants/windows/reborn/ufc_caf_diagnostics.cpp",
+    "origin": "parity-full/windows/reborn/ufc_caf_diagnostics.cpp",
+    "sha256": "693746a2a08aa93664196bbc45fd38cca4c4002940c383d23b163fa2f099306a"
+  },
+  {
+    "file": "app/variants/windows/reborn/ufc_language.cpp",
+    "origin": "parity-full/windows/reborn/ufc_language.cpp",
+    "sha256": "1fc2559420e5f10b98b951cb69cfb5959935f98b8c06bfd6a86db6f72b045a9b"
+  },
+  {
+    "file": "app/variants/windows/reborn/ufc_launcher_ui.cpp",
+    "origin": "parity-full/windows/reborn/ufc_launcher_ui.cpp",
+    "sha256": "4951b3fae03f3f697d74968e355ff527256f93688ef7e3d2e28e564141b8f036"
+  },
+  {
+    "file": "app/variants/windows/reborn/ufc_test_input.cpp",
+    "origin": "r8-input-lock/build/windows/reborn/ufc_test_input.cpp",
+    "sha256": "680684c6032add4d13eaf6cb30e74ae4014cf54501ea60a9d5af7009617f0c41"
+  },
+  {
+    "file": "app/variants/windows/original/main.cpp",
+    "origin": "r8-input-lock/build9final/windows/original/main.cpp",
+    "sha256": "a6a2c2813a48bcfa9d386eb1d510f8dcf4104704eadc522ff9898b81f03ad8a5"
+  },
+  {
+    "file": "app/variants/windows/original/ufc_caf_diagnostics.cpp",
+    "origin": "parity-full/windows/original/ufc_caf_diagnostics.cpp",
+    "sha256": "693746a2a08aa93664196bbc45fd38cca4c4002940c383d23b163fa2f099306a"
+  },
+  {
+    "file": "app/variants/windows/original/ufc_language.cpp",
+    "origin": "parity-full/windows/original/ufc_language.cpp",
+    "sha256": "a4621108276724926e4f082dc5a8ccae265d9058722aea594b8f4f0051b9bc53"
+  },
+  {
+    "file": "app/variants/windows/original/ufc_launcher_ui.cpp",
+    "origin": "parity-full/windows/original/ufc_launcher_ui.cpp",
+    "sha256": "4951b3fae03f3f697d74968e355ff527256f93688ef7e3d2e28e564141b8f036"
+  },
+  {
+    "file": "app/variants/windows/original/ufc_test_input.cpp",
+    "origin": "r8-input-lock/build/windows/original/ufc_test_input.cpp",
+    "sha256": "680684c6032add4d13eaf6cb30e74ae4014cf54501ea60a9d5af7009617f0c41"
+  },
+  {
+    "file": "app/variants/linux/reborn/main.cpp",
+    "origin": "r8-input-lock/build9final/linux/reborn/main.cpp",
+    "sha256": "312b1dae7e770962ac8a800091961194710db4c9daef766c8aeaeea4e428c259"
+  },
+  {
+    "file": "app/variants/linux/reborn/ufc_caf_diagnostics.cpp",
+    "origin": "parity-full/linux/reborn/ufc_caf_diagnostics.cpp",
+    "sha256": "693746a2a08aa93664196bbc45fd38cca4c4002940c383d23b163fa2f099306a"
+  },
+  {
+    "file": "app/variants/linux/reborn/ufc_language.cpp",
+    "origin": "parity-full/linux/reborn/ufc_language.cpp",
+    "sha256": "1fc2559420e5f10b98b951cb69cfb5959935f98b8c06bfd6a86db6f72b045a9b"
+  },
+  {
+    "file": "app/variants/linux/reborn/ufc_launcher_ui.cpp",
+    "origin": "parity-full/linux/reborn/ufc_launcher_ui.cpp",
+    "sha256": "4951b3fae03f3f697d74968e355ff527256f93688ef7e3d2e28e564141b8f036"
+  },
+  {
+    "file": "app/variants/linux/reborn/ufc_test_input.cpp",
+    "origin": "r8-input-lock/build/linux/reborn/ufc_test_input.cpp",
+    "sha256": "680684c6032add4d13eaf6cb30e74ae4014cf54501ea60a9d5af7009617f0c41"
+  },
+  {
+    "file": "app/variants/linux/original/main.cpp",
+    "origin": "r8-input-lock/build9final/linux/original/main.cpp",
+    "sha256": "edbcf50e3c6948b499aa0e1a13c7a4bc68356648a480fd68ce25cae0bb360d88"
+  },
+  {
+    "file": "app/variants/linux/original/ufc_caf_diagnostics.cpp",
+    "origin": "parity-full/linux/original/ufc_caf_diagnostics.cpp",
+    "sha256": "693746a2a08aa93664196bbc45fd38cca4c4002940c383d23b163fa2f099306a"
+  },
+  {
+    "file": "app/variants/linux/original/ufc_language.cpp",
+    "origin": "parity-full/linux/original/ufc_language.cpp",
+    "sha256": "a4621108276724926e4f082dc5a8ccae265d9058722aea594b8f4f0051b9bc53"
+  },
+  {
+    "file": "app/variants/linux/original/ufc_launcher_ui.cpp",
+    "origin": "parity-full/linux/original/ufc_launcher_ui.cpp",
+    "sha256": "4951b3fae03f3f697d74968e355ff527256f93688ef7e3d2e28e564141b8f036"
+  },
+  {
+    "file": "app/variants/linux/original/ufc_test_input.cpp",
+    "origin": "r8-input-lock/build/linux/original/ufc_test_input.cpp",
+    "sha256": "680684c6032add4d13eaf6cb30e74ae4014cf54501ea60a9d5af7009617f0c41"
+  },
+  {
+    "file": "app/fixes/ufc_hot_sampler.cpp",
+    "origin": "r8-input-lock/src/ufc_hot_sampler.cpp",
+    "sha256": "1ca568c48aa0123642e78344232317f889e401cb46d845271932f90ea99b7149"
+  },
+  {
+    "file": "app/fixes/ufc_r8_fixes.cpp",
+    "origin": "r8-input-lock/src/ufc_r8_fixes.cpp",
+    "sha256": "d8cf4fe879b8936653b9079f5ca302912b2ad9b3081bfd349d5165e6e95205a0"
+  },
+  {
+    "file": "app/fixes/ufc_thread_cpu.cpp",
+    "origin": "r8-input-lock/src/ufc_thread_cpu.cpp",
+    "sha256": "5543e6758a7803693ce56a2728a98f0c29a67ea38fa990511cc4045ab201ffaf"
+  },
+  {
+    "file": "sdk-modified/gpu/command_processor.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/command_processor.cpp",
+    "sha256": "d01b495bc94982301d8b51db4dd65aa98841350eeccd6e3f0ec62e4254262b58"
+  },
+  {
+    "file": "sdk-modified/gpu/deferred_command_buffer.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/deferred_command_buffer.cpp",
+    "sha256": "6b9a698925aa5d5c26e6466284e8534cc42be48f1ad2aaf3ec13023237ef992b"
+  },
+  {
+    "file": "sdk-modified/gpu/render_target_cache.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/render_target_cache.cpp",
+    "sha256": "c0936997046e7eada4a35737ff8880102fd38a3849ba80a425957324eb3a95cc"
+  },
+  {
+    "file": "sdk-modified/gpu/shared_memory.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/shared_memory.cpp",
+    "sha256": "a200d28641b2c8eac645df0876835cf4eb5bc1f834a8524ffb7768a69d621ef4"
+  },
+  {
+    "file": "sdk-modified/gpu/spirv_translator_fetch.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/spirv_translator_fetch.cpp",
+    "sha256": "037813954777c81889fb449a43d449bc0f0392e802a9986aa20989ff19a6b2ff"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_gpu_timing.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_gpu_timing.h",
+    "sha256": "8f358a8466b1c47b39cbfff24332006892f371c4ae68f0588477bd822b1971c7"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_lossless_readback.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_lossless_readback.h",
+    "sha256": "d132fcdb60dd513c6b58f1a7c226b56a4a00a59ef7623b434f042d5406fa376f"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_lossless_spirv.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_lossless_spirv.h",
+    "sha256": "83b167ec607a42c4d66f96b55e511b5694eaba196f7b6e87b3f991b1815aa48a"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_ondemand_readback.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_ondemand_readback.h",
+    "sha256": "babd4fda746d4e7ef98d74b29e94070952e104a30b2c936d7d59e1b8f07be909"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_read_probe.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_read_probe.h",
+    "sha256": "fb8d4eaf6c5d5c87d71956eea10be2e2a4f2b6eeb1a3f6b591b654518350e07a"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_resource_timing.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_resource_timing.h",
+    "sha256": "215472c76291ff0b8f5c629e37273b6269ae2bed5c675a6826a6a57ac934ce6c"
+  },
+  {
+    "file": "sdk-modified/gpu/ufc_wait_diag.h",
+    "origin": "r8-input-lock/gpu84-async/gpu/ufc_wait_diag.h",
+    "sha256": "bf54415c8ad68822c0e01c0ed1cd3710568116c0b6e2492f82a1e700dba01ca1"
+  },
+  {
+    "file": "sdk-modified/gpu/vulkan_command_processor.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/vulkan_command_processor.cpp",
+    "sha256": "542bfea30d58130cb173232386993a6b16a147ce90c65628e1dc23885be6fae7"
+  },
+  {
+    "file": "sdk-modified/gpu/vulkan_shared_memory.cpp",
+    "origin": "r8-input-lock/gpu84-async/gpu/vulkan_shared_memory.cpp",
+    "sha256": "85f8c78a50be4db40433c2ccbce1f025470a922efe0d11a44cbd7b1fe4a7b6fd"
+  },
+  {
+    "file": "sdk-modified/include/ufc_linux_crash.h",
+    "origin": "parity-full/include/ufc_linux_crash.h",
+    "sha256": "318f6002f8d18aa155db510190924eb740fa4ddac1f86a70288489f554fe2efe"
+  },
+  {
+    "file": "sdk-modified/include/ufc_linux_gpu_metrics.h",
+    "origin": "parity-full/include/ufc_linux_gpu_metrics.h",
+    "sha256": "3abcfce269e6fcee54f6693313001593e1323bcce275b186655ed0f1bd900603"
+  },
+  {
+    "file": "sdk-modified/include/ufc_linux_guard.h",
+    "origin": "parity-full/include/ufc_linux_guard.h",
+    "sha256": "9a200e6c9a3608081f6f6a66187a502c1bceef5b1bc6addd8c023aa88797edc3"
+  },
+  {
+    "file": "sdk-modified/include/ufc_linux_native.h",
+    "origin": "parity-full/include/ufc_linux_native.h",
+    "sha256": "001091986914ed3ccf4ff21f025ea830685f5e9b18db45c69ea77f8916ed6ec9"
+  },
+  {
+    "file": "sdk-modified/include/ufc_renderdoc_capture.h",
+    "origin": "parity-full/include/ufc_renderdoc_capture.h",
+    "sha256": "5a56e45e3912107573e75e59362ac51c7e41d34dd90fddb86aba43d699dc446e"
+  },
+  {
+    "file": "sdk-modified/runtime/threading_posix.cpp",
+    "origin": "r8-input-lock/rt84-build/threading_posix.cpp",
+    "sha256": "abdd9b81921460d1857fb5afdbd049b09ee6b063c5e56fa360ce7346633d9a49"
+  },
+  {
+    "file": "LICENSES/ReXGlue-Xenia-BSD-3-Clause.txt",
+    "origin": "rexglue-sdk-clean/LICENSE",
+    "sha256": "8e065be1da2ff9a16b1f063d4636d8b67e6a654bb90583ea4332e66ac421bb18"
+  },
+  {
+    "file": "scripts/historical/build_r8.py",
+    "origin": "r8-input-lock/build_r8.py",
+    "sha256": "1d2deb482c186ded5c1e8d681f6868223c4dee51ceed09042ddc5e2c1905a41e"
+  },
+  {
+    "file": "scripts/historical/build_r81.py",
+    "origin": "r8-input-lock/build_r81.py",
+    "sha256": "0cd70d5997e49b84866616e0bfa79f1033b6fe6b30b0c45d9070c9dff62fb11e"
+  },
+  {
+    "file": "scripts/historical/build_r9.py",
+    "origin": "r8-input-lock/build_r9.py",
+    "sha256": "b49410461dab0d36be303d0faf105ee6b5b987e42c092320267aed3957401697"
+  },
+  {
+    "file": "scripts/historical/build_gpu84.py",
+    "origin": "r8-input-lock/build_gpu84.py",
+    "sha256": "259d35acd8c01dd8929db9583e01078df0209e075db0db76e85680ad5fdcf72f"
+  },
+  {
+    "file": "scripts/historical/build_gpu_win.py",
+    "origin": "r8-input-lock/build_gpu_win.py",
+    "sha256": "ab9909986e95ec6f81096b34c1aa1ea76185e0b9ecfdc47e8bfd3bcce09fcd9d"
+  },
+  {
+    "file": "scripts/historical/build_runtime84.py",
+    "origin": "r8-input-lock/build_runtime84.py",
+    "sha256": "ce15fa2461033c3b4b3f39af767afc72745601ed7d0fb02afe4b218f30ef3839"
+  },
+  {
+    "file": "scripts/historical/patch_async_ufc.py",
+    "origin": "r8-input-lock/patch_async_ufc.py",
+    "sha256": "8d3ec478d739d45cdff4ecbb608b089e1558e5c382957dd707d9e4c0328d9dcc"
+  },
+  {
+    "file": "scripts/historical/package_r8.py",
+    "origin": "r8-input-lock/package_r8.py",
+    "sha256": "e23828558d1dba2b1d162ce62abcbaad23c134da5412c5d7e4d96c6f788805a0"
+  },
+  {
+    "file": "scripts/historical/package_r81.py",
+    "origin": "r8-input-lock/package_r81.py",
+    "sha256": "bd9210e0fb25e02c8412ae19740c2a51c11a0d6bf67f81ac480c7d19e04d5a5a"
+  },
+  {
+    "file": "scripts/historical/package_r9.py",
+    "origin": "r8-input-lock/package_r9.py",
+    "sha256": "e1e30cf49d94388a967979f7f833217a178941dfc03ff09c4242d4112d7701ac"
+  },
+  {
+    "file": "scripts/historical/frontdoor-windows.command.json",
+    "origin": "parity-full/frontdoor-windows.command.json",
+    "sha256": "ceea488054ff8974cd8c9f6773a8dec0effc65db6cd1109ef18170c3f2d52567"
+  },
+  {
+    "file": "scripts/historical/frontdoor-linux.command.json",
+    "origin": "parity-full/frontdoor-linux.command.json",
+    "sha256": "78688ba426eb6184293b557bb4275371141f99b9e5297b4edd418b47eab91c0f"
+  },
+  {
+    "file": "docs/LEIA-ME-R9-historico.md",
+    "origin": "r8-input-lock/LEIA-ME-R9.md",
+    "sha256": "5a9ca4cb7d182c75213a2df88d1fbbbe8f5c3d5f2c852e19f9726b508863a837"
+  },
+  {
+    "file": "sdk-modified/shaders/copy_delta128.comp",
+    "origin": "lossless-delta-prototype/copy_delta128.comp",
+    "sha256": "3eaa55f0ac0b8f45c7adfc1b686802cdb326703e5115d1f14855ac6cdb2f4261"
+  }
+]

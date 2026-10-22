@@ -1,0 +1,396 @@
+--- a/vulkan_command_processor.cpp
++++ b/vulkan_command_processor.cpp
+@@ -1,4 +1,10 @@
+ #include <cstdlib>
++#include <atomic>
++#include <condition_variable>
++#include <deque>
++#include <mutex>
++#include <thread>
++#include "xxhash.h"
+ #include "ufc_lossless_readback.h"
+ #include "ufc_read_probe.h"
+ #include "ufc_ondemand_readback.h"
+@@ -622,7 +628,158 @@
+   legacy_readback_memexport_cvar_name_ = "vulkan_readback_memexport";
+ }
+ 
+-VulkanCommandProcessor::~VulkanCommandProcessor() = default;
++REXCVAR_DEFINE_BOOL(ufc_async_submit, true, "GPU/Vulkan",
++                    "CPU: record and submit mid-frame command buffers on a worker thread (Hydro 9.1.0)");
++
++// Pointer to DeferredCommandBuffer::command_stream_ without changing the class (explicit
++// instantiation may name private members).
++namespace ufc_async_access {
++struct StreamTag {
++  using type = std::vector<uintmax_t> DeferredCommandBuffer::*;
++  friend type Get(StreamTag);
++};
++template <typename Tag, typename Tag::type M>
++struct Rob {
++  friend typename Tag::type Get(Tag) { return M; }
++};
++template struct Rob<StreamTag, &DeferredCommandBuffer::command_stream_>;
++}  // namespace ufc_async_access
++
++namespace {
++struct UfcAsyncJob {
++  VkCommandPool pool = VK_NULL_HANDLE;
++  VkCommandBuffer buffer = VK_NULL_HANDLE;
++  VkFence fence = VK_NULL_HANDLE;
++  std::vector<VkSemaphore> wait_semaphores;
++  std::vector<VkPipelineStageFlags> wait_stages;
++  std::vector<uintmax_t> stream;
++  uint64_t hash = 0;
++};
++struct UfcAsyncState {
++  bool started = false;
++  const ui::vulkan::VulkanDevice* device = nullptr;
++  std::unique_ptr<DeferredCommandBuffer> exec;
++  std::thread thread;
++  std::mutex mutex;
++  std::condition_variable cv, done_cv;
++  std::deque<UfcAsyncJob> queue;
++  size_t pending = 0;
++  bool stop = false;
++  std::atomic<bool> failed{false};
++  std::vector<std::vector<uintmax_t>> free_streams;
++  std::atomic<uint64_t> verified{0}, mismatches{0};
++  uint64_t jobs = 0, syncs = 0, flushes = 0;
++  std::chrono::steady_clock::time_point last_log{};
++} ufc_async;
++
++bool UfcAsyncVerify() {
++  static const bool on = [] { const char* v = std::getenv("UFC_ASYNC_VERIFY"); return v && v[0] == '1'; }();
++  return on;
++}
++uint64_t UfcStreamHash(const std::vector<uintmax_t>& v) {
++  const uint64_t h = XXH3_64bits(v.data(), v.size() * sizeof(uintmax_t));
++  return h ? h : 1;
++}
++
++void UfcAsyncWorker() {
++  auto& a = ufc_async;
++  const auto stream_member = Get(ufc_async_access::StreamTag{});
++  for (;;) {
++    UfcAsyncJob job;
++    {
++      std::unique_lock<std::mutex> lock(a.mutex);
++      a.cv.wait(lock, [&] { return a.stop || !a.queue.empty(); });
++      if (a.queue.empty()) return;
++      job = std::move(a.queue.front());
++      a.queue.pop_front();
++    }
++    if (!a.failed.load()) {
++      const auto& dfn = a.device->functions();
++      const VkDevice device = a.device->device();
++      bool ok = dfn.vkResetCommandPool(device, job.pool, 0) == VK_SUCCESS;
++      if (ok) {
++        VkCommandBufferBeginInfo begin_info{};
++        begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
++        begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
++        ok = dfn.vkBeginCommandBuffer(job.buffer, &begin_info) == VK_SUCCESS;
++      }
++      if (ok) {
++        (a.exec.get()->*stream_member).swap(job.stream);
++        a.exec->Execute(job.buffer);
++        (a.exec.get()->*stream_member).swap(job.stream);
++        if (job.hash) {
++          ++a.verified;
++          if (UfcStreamHash(job.stream) != job.hash) ++a.mismatches;
++        }
++        ok = dfn.vkEndCommandBuffer(job.buffer) == VK_SUCCESS;
++      }
++      if (ok) {
++        VkSubmitInfo submit_info{};
++        submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
++        if (!job.wait_semaphores.empty()) {
++          submit_info.waitSemaphoreCount = uint32_t(job.wait_semaphores.size());
++          submit_info.pWaitSemaphores = job.wait_semaphores.data();
++          submit_info.pWaitDstStageMask = job.wait_stages.data();
++        }
++        submit_info.commandBufferCount = 1;
++        submit_info.pCommandBuffers = &job.buffer;
++        ui::vulkan::VulkanDevice::Queue::Acquisition queue_acquisition =
++            a.device->AcquireQueue(a.device->queue_family_graphics_compute(), 0);
++        ok = dfn.vkQueueSubmit(queue_acquisition.queue(), 1, &submit_info, job.fence) == VK_SUCCESS;
++      }
++      if (!ok) {
++        REXGPU_ERROR("[ufc-async-submit] worker submission failed; treating as device loss");
++        a.failed = true;
++      }
++    }
++    {
++      std::lock_guard<std::mutex> lock(a.mutex);
++      job.stream.clear();
++      a.free_streams.push_back(std::move(job.stream));
++      --a.pending;
++    }
++    a.done_cv.notify_all();
++  }
++}
++
++void UfcAsyncFlush() {
++  auto& a = ufc_async;
++  if (!a.started) return;
++  std::unique_lock<std::mutex> lock(a.mutex);
++  if (a.pending) ++a.flushes;
++  a.done_cv.wait(lock, [&] { return a.pending == 0; });
++}
++
++size_t UfcAsyncPending() {
++  auto& a = ufc_async;
++  if (!a.started) return 0;
++  std::lock_guard<std::mutex> lock(a.mutex);
++  return a.pending;
++}
++
++void UfcAsyncStop() {
++  auto& a = ufc_async;
++  if (!a.started) return;
++  {
++    std::lock_guard<std::mutex> lock(a.mutex);
++    a.stop = true;
++  }
++  a.cv.notify_all();
++  if (a.thread.joinable()) a.thread.join();
++  a.exec.reset();
++  a.started = false;
++  a.stop = false;
++}
++
++bool UfcAsyncWanted(bool is_swap) {
++  if (is_swap || ufc_async.failed.load() || !REXCVAR_GET(ufc_async_submit)) return false;
++  if (ufc_gpu_timing::Enabled() || ufc_resource_timing::Enabled()) return false;
++  // V70 / lossless readback submit to the queue themselves: keep everything synchronous then.
++  return rex::cvar::GetFlagByName("readback_resolve") == "none";
++}
++}  // namespace
++
++VulkanCommandProcessor::~VulkanCommandProcessor() { UfcAsyncStop(); }
+ 
+ void VulkanCommandProcessor::ClearCaches() {
+   CommandProcessor::ClearCaches();
+@@ -1924,6 +2081,7 @@
+ 
+ void VulkanCommandProcessor::ShutdownContext() {
+   ([&]() {ufc_wait_diag::Context reason("vulkan_cp:1914");ufc_wait_diag::Scope elapsed(ufc_wait_diag::AwaitAll);return AwaitAllQueueOperationsCompletion();}());
++  UfcAsyncStop();
+   ufc_lossless_readback::Shutdown(*this);
+   ufc_resource_timing::Shutdown(GetVulkanDevice(),submission_completed_);
+   ufc_gpu_timing::Shutdown(GetVulkanDevice(),submission_completed_);
+@@ -5135,7 +5293,21 @@
+   const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
+   const VkDevice device = vulkan_device->device();
+ 
+-  size_t fences_total = submissions_in_flight_fences_.size();
++  size_t ufc_unsubmitted = 0;
++  if (ufc_async.started) {
++    if (await_submission > submission_completed_) {
++      UfcAsyncFlush();
++    }
++    ufc_unsubmitted = UfcAsyncPending();
++    if (ufc_async.failed.load()) {
++      device_lost_ = true;
++      if (graphics_system_) {
++        graphics_system_->OnHostGpuLossFromAnyThread(true);
++      }
++      return;
++    }
++  }
++  size_t fences_total = submissions_in_flight_fences_.size() - ufc_unsubmitted;
+   size_t fences_awaited = 0;
+   if (await_submission > submission_completed_) {
+     // Await in a blocking way if requested.
+@@ -5499,6 +5671,7 @@
+     // Submit sparse binds earlier, before executing the deferred command
+     // buffer, to reduce latency.
+     if (!sparse_memory_binds_.empty()) {
++      UfcAsyncFlush();
+       sparse_buffer_bind_infos_temp_.clear();
+       sparse_buffer_bind_infos_temp_.reserve(sparse_buffer_binds_.size());
+       for (const SparseBufferBind& sparse_buffer_bind : sparse_buffer_binds_) {
+@@ -5548,69 +5721,124 @@
+ 
+     assert_false(command_buffers_writable_.empty());
+     CommandBuffer command_buffer = command_buffers_writable_.back();
+-    if (dfn.vkResetCommandPool(device, command_buffer.pool, 0) != VK_SUCCESS) {
+-      REXGPU_ERROR("Failed to reset a Vulkan command pool");
+-      return false;
+-    }
+-    VkCommandBufferBeginInfo command_buffer_begin_info;
+-    command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+-    command_buffer_begin_info.pNext = nullptr;
+-    command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+-    command_buffer_begin_info.pInheritanceInfo = nullptr;
+-    if (dfn.vkBeginCommandBuffer(command_buffer.buffer, &command_buffer_begin_info) != VK_SUCCESS) {
+-      REXGPU_ERROR("Failed to begin a Vulkan command buffer");
+-      return false;
+-    }
+-    ufc_resource_timing::Poll(vulkan_device,submission_completed_);
+-  ufc_gpu_timing::Poll(vulkan_device,submission_completed_);
+-    const int timing_slot=ufc_gpu_timing::Begin(vulkan_device,command_buffer.buffer,GetCurrentSubmission(),frame_current_,is_closing_frame);
+-    const auto timing_record_begin=ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now():0;
+-    deferred_command_buffer_.Execute(command_buffer.buffer);
+-    ufc_gpu_timing::End(command_buffer.buffer,timing_slot,ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now()-timing_record_begin:0);
+-    if (dfn.vkEndCommandBuffer(command_buffer.buffer) != VK_SUCCESS) {
+-      REXGPU_ERROR("Failed to end a Vulkan command buffer");
+-      return false;
+-    }
+-
+-    VkSubmitInfo submit_info;
+-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+-    submit_info.pNext = nullptr;
+-    if (!current_submission_wait_semaphores_.empty()) {
+-      submit_info.waitSemaphoreCount = uint32_t(current_submission_wait_semaphores_.size());
+-      submit_info.pWaitSemaphores = current_submission_wait_semaphores_.data();
+-      submit_info.pWaitDstStageMask = current_submission_wait_stage_masks_.data();
+-    } else {
+-      submit_info.waitSemaphoreCount = 0;
+-      submit_info.pWaitSemaphores = nullptr;
+-      submit_info.pWaitDstStageMask = nullptr;
+-    }
+-    submit_info.commandBufferCount = 1;
+-    submit_info.pCommandBuffers = &command_buffer.buffer;
+-    submit_info.signalSemaphoreCount = 0;
+-    submit_info.pSignalSemaphores = nullptr;
+     assert_false(fences_free_.empty());
+     VkFence fence = fences_free_.back();
+-    if (dfn.vkResetFences(device, 1, &fence) != VK_SUCCESS) {
+-      REXGPU_ERROR("Failed to reset a Vulkan submission fence");
+-      return false;
+-    }
+-    VkResult submit_result;
+-    const auto timing_submit_begin=ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now():0;
+-    {
+-      ui::vulkan::VulkanDevice::Queue::Acquisition queue_acquisition =
+-          vulkan_device->AcquireQueue(vulkan_device->queue_family_graphics_compute(), 0);
+-      submit_result = dfn.vkQueueSubmit(queue_acquisition.queue(), 1, &submit_info, fence);
+-    }
+-    ufc_gpu_timing::Submitted(timing_slot,ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now()-timing_submit_begin:0);
+-    if (submit_result != VK_SUCCESS) {
+-      REXGPU_ERROR("Failed to submit a Vulkan command buffer");
+-      if (submit_result == VK_ERROR_DEVICE_LOST && !device_lost_) {
+-        device_lost_ = true;
+-        if (graphics_system_) {
+-          graphics_system_->OnHostGpuLossFromAnyThread(true);
++    if (UfcAsyncWanted(is_swap)) {
++      auto& ua = ufc_async;
++      if (!ua.started) {
++        ua.device = vulkan_device;
++        ua.exec = std::make_unique<DeferredCommandBuffer>(*this);
++        ua.stop = false;
++        ua.thread = std::thread(UfcAsyncWorker);
++        ua.started = true;
++        REXGPU_INFO("[ufc-async-submit] worker started");
++      }
++      if (dfn.vkResetFences(device, 1, &fence) != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to reset a Vulkan submission fence");
++        return false;
++      }
++      UfcAsyncJob job;
++      job.pool = command_buffer.pool;
++      job.buffer = command_buffer.buffer;
++      job.fence = fence;
++      job.wait_semaphores = current_submission_wait_semaphores_;
++      job.wait_stages = current_submission_wait_stage_masks_;
++      {
++        std::lock_guard<std::mutex> lock(ua.mutex);
++        if (!ua.free_streams.empty()) {
++          job.stream = std::move(ua.free_streams.back());
++          ua.free_streams.pop_back();
+         }
+       }
+-      return false;
++      job.stream.clear();
++      (deferred_command_buffer_.*Get(ufc_async_access::StreamTag{})).swap(job.stream);
++      if (UfcAsyncVerify()) job.hash = UfcStreamHash(job.stream);
++      {
++        std::lock_guard<std::mutex> lock(ua.mutex);
++        ua.queue.push_back(std::move(job));
++        ++ua.pending;
++      }
++      ua.cv.notify_one();
++      ++ua.jobs;
++    } else {
++      if (ufc_async.started) {
++        UfcAsyncFlush();
++        ++ufc_async.syncs;
++        if (ufc_async.failed.load()) {
++          return false;
++        }
++      }
++      if (dfn.vkResetCommandPool(device, command_buffer.pool, 0) != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to reset a Vulkan command pool");
++        return false;
++      }
++      VkCommandBufferBeginInfo command_buffer_begin_info;
++      command_buffer_begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
++      command_buffer_begin_info.pNext = nullptr;
++      command_buffer_begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
++      command_buffer_begin_info.pInheritanceInfo = nullptr;
++      if (dfn.vkBeginCommandBuffer(command_buffer.buffer, &command_buffer_begin_info) != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to begin a Vulkan command buffer");
++        return false;
++      }
++      ufc_resource_timing::Poll(vulkan_device,submission_completed_);
++    ufc_gpu_timing::Poll(vulkan_device,submission_completed_);
++      const int timing_slot=ufc_gpu_timing::Begin(vulkan_device,command_buffer.buffer,GetCurrentSubmission(),frame_current_,is_closing_frame);
++      const auto timing_record_begin=ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now():0;
++      deferred_command_buffer_.Execute(command_buffer.buffer);
++      ufc_gpu_timing::End(command_buffer.buffer,timing_slot,ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now()-timing_record_begin:0);
++      if (dfn.vkEndCommandBuffer(command_buffer.buffer) != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to end a Vulkan command buffer");
++        return false;
++      }
++
++      VkSubmitInfo submit_info;
++      submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
++      submit_info.pNext = nullptr;
++      if (!current_submission_wait_semaphores_.empty()) {
++        submit_info.waitSemaphoreCount = uint32_t(current_submission_wait_semaphores_.size());
++        submit_info.pWaitSemaphores = current_submission_wait_semaphores_.data();
++        submit_info.pWaitDstStageMask = current_submission_wait_stage_masks_.data();
++      } else {
++        submit_info.waitSemaphoreCount = 0;
++        submit_info.pWaitSemaphores = nullptr;
++        submit_info.pWaitDstStageMask = nullptr;
++      }
++      submit_info.commandBufferCount = 1;
++      submit_info.pCommandBuffers = &command_buffer.buffer;
++      submit_info.signalSemaphoreCount = 0;
++      submit_info.pSignalSemaphores = nullptr;
++      if (dfn.vkResetFences(device, 1, &fence) != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to reset a Vulkan submission fence");
++        return false;
++      }
++      VkResult submit_result;
++      const auto timing_submit_begin=ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now():0;
++      {
++        ui::vulkan::VulkanDevice::Queue::Acquisition queue_acquisition =
++            vulkan_device->AcquireQueue(vulkan_device->queue_family_graphics_compute(), 0);
++        submit_result = dfn.vkQueueSubmit(queue_acquisition.queue(), 1, &submit_info, fence);
++      }
++      ufc_gpu_timing::Submitted(timing_slot,ufc_gpu_timing::Enabled()?ufc_gpu_timing::Now()-timing_submit_begin:0);
++      if (submit_result != VK_SUCCESS) {
++        REXGPU_ERROR("Failed to submit a Vulkan command buffer");
++        if (submit_result == VK_ERROR_DEVICE_LOST && !device_lost_) {
++          device_lost_ = true;
++          if (graphics_system_) {
++            graphics_system_->OnHostGpuLossFromAnyThread(true);
++          }
++        }
++        return false;
++      }
++    }
++    if (ufc_async.started) {
++      const auto now = std::chrono::steady_clock::now();
++      if (now - ufc_async.last_log > std::chrono::seconds(10)) {
++        ufc_async.last_log = now;
++        REXGPU_INFO("[ufc-async-submit] async={} sync={} flushes={} verified={} mismatches={}",
++                    ufc_async.jobs, ufc_async.syncs, ufc_async.flushes, ufc_async.verified.load(),
++                    ufc_async.mismatches.load());
++      }
+     }
+     uint64_t submission_current = GetCurrentSubmission();
+     ufc_ondemand::Submitted(submission_current);

@@ -1,0 +1,14 @@
+[
+  "/usr/lib/llvm-19/bin/clang++",
+  "-I/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/src",
+  "-std=gnu++23",
+  "-O2",
+  "-pthread",
+  "-I/mnt/c/Users/Monscriser/Documents/Codex/2026-10-20/de/work/linux-update/pre/src-reborn",
+  "-isystem",
+  "/mnt/e/UFC3-RexGlue-Lab/build/sdk-linux-installed/include",
+  "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/src/launcher_entry.cpp",
+  "-o",
+  "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/linux/UFC3",
+  "-ldl"
+]

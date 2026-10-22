@@ -1,0 +1,30 @@
+#version 450
+// Prototype ONLY: not bound by the game. Requires a separately owned device-local
+// mirror per output-slot allocation generation and completed host-read lifetime.
+layout(local_size_x=64) in;
+layout(set=0,binding=0,std430) readonly buffer Source { uvec4 source_words[]; };
+layout(set=0,binding=1,std430) buffer Mirror { uvec4 mirror_words[]; };
+layout(set=0,binding=2,std430) writeonly buffer Destination { uvec4 destination_words[]; };
+layout(push_constant) uniform Params { uint count_uvec4; uint force_all; } params;
+shared uint changed[8];
+void main() {
+  uint lane=gl_LocalInvocationIndex;
+  uint group=lane>>3;
+  if((lane&7u)==0u) changed[group]=params.force_all;
+  barrier();
+  uint index=gl_GlobalInvocationID.x;
+  bool in_range=index<params.count_uvec4;
+  uvec4 current=uvec4(0);
+  if(in_range) {
+    current=source_words[index];
+    if(params.force_all==0u && any(notEqual(current,mirror_words[index])))
+      atomicOr(changed[group],1u);
+  }
+  barrier();
+  if(in_range) {
+    // Each eight invocations cover one aligned128-byte block. Write all its
+    // valid words if any word differs; unchanged blocks retain exact contents.
+    if(changed[group]!=0u) destination_words[index]=current;
+    mirror_words[index]=current;
+  }
+}

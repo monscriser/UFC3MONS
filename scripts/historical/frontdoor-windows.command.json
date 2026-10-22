@@ -1,0 +1,20 @@
+[
+  "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-13/usan/work/toolchain/llvm-mingw-20261006-ucrt-ubuntu-22.04-x86_64/bin/x86_64-w64-mingw32-clang++",
+  "-I/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/src",
+  "-std=gnu++23",
+  "-O2",
+  "-DNOMINMAX",
+  "-DWIN32_LEAN_AND_MEAN",
+  "-municode",
+  "-mwindows",
+  "-static",
+  "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/src/launcher_entry.cpp",
+  "CMakeFiles/ufc3_launcher.dir/ufc_icon.rc.res",
+  "-o",
+  "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-21/continue-o-projeto-ufc3mons-port-nativo/work/parity-full/windows/UFC3.exe",
+  "-luser32",
+  "-lshell32",
+  "-lbcrypt",
+  "-lpdh",
+  "-lpsapi"
+]

@@ -1,0 +1,94 @@
+--- a/shared_memory.cpp
++++ b/shared_memory.cpp
+@@ -15,6 +15,8 @@
+ #include <utility>
+ 
+ #include <rex/assert.h>
++#include <rex/cvar.h>
++#include <rex/logging.h>
+ #include <rex/bit.h>
+ #include <rex/dbg.h>
+ #include <rex/graphics/shared_memory.h>
+@@ -340,7 +342,72 @@
+   watch_range_first_free_ = range;
+ }
+ 
++// UFC R8.4: Hydro 8.9.1 single-range shortcut. Most single-range requests only confirm that
++// every page is already valid; the original builds, sorts and frees a vector to find that
++// nothing needs uploading and returns true. Same bounds checks, same allocation, same valid
++// bits under the same lock; any invalid page takes the original path unchanged.
++REXCVAR_DEFINE_BOOL(ufc_request_range_fast, true, "GPU",
++                    "Single-range shared memory requests: skip the merge/sort when every page is valid");
++REXCVAR_DEFINE_BOOL(ufc_request_range_fast_verify, false, "GPU",
++                    "TEST ONLY: after each fast hit also run the original path and count uploads it wanted");
++namespace {
++thread_local bool ufc_rr_in_verify = false;
++uint64_t ufc_rr_fast_hits = 0, ufc_rr_verify_uploads = 0;
++}  // namespace
++
+ bool SharedMemory::RequestRanges(const std::pair<uint32_t, uint32_t>* ranges, size_t count) {
++  if (count == 1 && ranges && !ufc_rr_in_verify && REXCVAR_GET(ufc_request_range_fast)) {
++    const uint32_t start = ranges[0].first, length = ranges[0].second;
++    if (!length) {
++      return true;
++    }
++    if (start > kBufferSize || (kBufferSize - start) < length) {
++      return false;
++    }
++    if (!EnsureHostGpuMemoryAllocated(start, length)) {
++      return false;
++    }
++    const uint32_t page_first = start >> page_size_log2_;
++    const uint32_t page_last = (start + length - 1) >> page_size_log2_;
++    const bool verify = REXCVAR_GET(ufc_request_range_fast_verify);
++    // Proof mode keeps the recursive global lock until the original path re-ran.
++    std::unique_lock<std::recursive_mutex> verify_lock;
++    if (verify) {
++      verify_lock = global_critical_region_.Acquire();
++    }
++    bool all_valid = true;
++    {
++      auto global_lock = global_critical_region_.Acquire();
++      for (uint32_t i = page_first >> 6; i <= (page_last >> 6); ++i) {
++        uint64_t mask = UINT64_MAX;
++        if (i == (page_first >> 6)) {
++          mask &= ~((uint64_t(1) << (page_first & 63)) - 1);
++        }
++        if (i == (page_last >> 6) && (page_last & 63) != 63) {
++          mask &= (uint64_t(1) << ((page_last & 63) + 1)) - 1;
++        }
++        if ((system_page_flags_valid_[i] & mask) != mask) {
++          all_valid = false;
++          break;
++        }
++      }
++    }
++    if (all_valid) {
++      if (verify) {
++        ++ufc_rr_fast_hits;
++        const uint64_t before = ufc_rr_verify_uploads;
++        ufc_rr_in_verify = true;
++        const bool ok = RequestRanges(ranges, count);
++        ufc_rr_in_verify = false;
++        if ((ufc_rr_fast_hits & 0x3FFFF) == 0 || ufc_rr_verify_uploads != before) {
++          REXGPU_WARN("[ufc-rrfast-verify] fast_hits={} original_uploads={}", ufc_rr_fast_hits,
++                      ufc_rr_verify_uploads);
++        }
++        return ok;
++      }
++      return true;
++    }
++  }
+   if (ranges == nullptr || !count) {
+     return true;
+   }
+@@ -468,6 +535,9 @@
+     return true;
+   }
+ 
++  if (ufc_rr_in_verify) {
++    ++ufc_rr_verify_uploads;
++  }
+   return UploadRanges(upload_ranges_);
+ }
+ 

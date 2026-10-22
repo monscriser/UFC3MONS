@@ -1,0 +1,6 @@
+revision,fps_low,fps_high,cpu_core_equivalents,platform,evidence
+R8,30,30,3.7,Linux,historical development logs
+R8.3,33,36,3.1,Linux,historical development logs
+R8.4,36,41,3.1,Linux,historical development logs
+R8.5,57,60,2.1,Linux,historical development logs
+R9,60,60,,Windows and Linux,owner report: Reborn Career Mode; not instrumented

@@ -87,9 +87,9 @@ verified on PC and on the Ally.
 Performance depends on the scene, hardware, driver, settings and shader-cache state. Static recompilation alone does not
 guarantee higher performance than an emulator.
 
-![Development FPS and CPU progress (R8–R9 history)](media/performance-r9.png)
+![Development progress: fight FPS, game speed below 60 FPS and GPU time (R8 to BETA 1.1)](media/performance-r9.png)
 
-*Earlier R8–R9 history: Linux development observations on the ROG Ally before the P series.*
+*Measurements from different sessions and hardware, not a controlled benchmark. BETA 1.0 and 1.1 were not measured on the ROG Ally.*
 
 ## Features
 

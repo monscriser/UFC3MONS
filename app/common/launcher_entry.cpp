@@ -15,12 +15,13 @@ int Run(const std::vector<std::string>& options,const ufc::fs::path& root){
  auto installation=explicit_game.empty()?ufc::Discover(bundle):ufc::Installation{ufc::fs::absolute(explicit_game),{}};
  if(ufc::Ready(installation))ufc::Register(installation);
  if(configure||!play||!ufc::Ready(installation)){
+  ufc::Settings configuration;configuration.Load({});
   auto exe=ufc::GameBinary(bundle);if(!ufc::fs::is_regular_file(exe))throw std::runtime_error("Extraia o pacote completo, incluindo a pasta data.");
 #ifdef _WIN32
-  auto command=ufc::Quote(exe.wstring())+L" --gpu_plugin=xenos --ufc_configurator=true --fullscreen=false --window_width=1280 --window_height=960";STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
+  auto command=ufc::Quote(exe.wstring())+L" --gpu_plugin=xenos --ufc_configurator=true --fullscreen=false --window_width=900 --window_height=700";command+=configuration.write_logs?L" --log_level=info":L" --log_file=NUL --log_level=off";STARTUPINFOW startup{};startup.cb=sizeof(startup);PROCESS_INFORMATION process{};
   if(!CreateProcessW(exe.c_str(),command.data(),nullptr,nullptr,FALSE,0,nullptr,bundle.c_str(),&startup,&process))throw std::runtime_error("Nao foi possivel abrir o configurador.");CloseHandle(process.hThread);CloseHandle(process.hProcess);return 0;
 #else
-  auto path=ufc::U8(exe);chdir(bundle.c_str());execl(path.c_str(),path.c_str(),"--gpu_plugin=xenos","--ufc_configurator=true","--fullscreen=false","--window_width=1280","--window_height=960",nullptr);throw std::runtime_error("Nao foi possivel abrir o configurador.");
+  auto path=ufc::U8(exe);chdir(bundle.c_str());if(!configuration.write_logs){int sink=open("/dev/null",O_WRONLY);if(sink>=0){dup2(sink,1);dup2(sink,2);close(sink);}}execl(path.c_str(),path.c_str(),"--gpu_plugin=xenos","--ufc_configurator=true","--fullscreen=false","--window_width=900","--window_height=700",configuration.write_logs?"--log_level=info":"--log_level=off",configuration.write_logs?"--log_file=/dev/null":"--log_file=/dev/null",nullptr);throw std::runtime_error("Nao foi possivel abrir o configurador.");
 #endif
  }
  ufc::Settings settings;settings.Load(installation.game);ufc::Session session;

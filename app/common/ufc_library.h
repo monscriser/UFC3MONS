@@ -1,5 +1,6 @@
 #pragma once
 #include "session_recorder.h"
+#include "ufc_build_identity.h"
 #include <filesystem>
 #include <fstream>
 #include <sstream>
@@ -28,13 +29,23 @@ inline std::string ReadText(const fs::path& p){std::ifstream in(p,std::ios::bina
 inline std::map<std::string,std::string> ReadIni(const fs::path& p){std::map<std::string,std::string> values;std::istringstream text(ReadText(p));std::string line;while(std::getline(text,line)){auto pos=line.find('=');if(pos!=std::string::npos)values[Trim(line.substr(0,pos))]=Trim(line.substr(pos+1));}return values;}
 inline fs::path RegistryDirectory(){if(auto* p=std::getenv("UFC3_SETTINGS_ROOT"))return Path(p);
 #ifdef _WIN32
- if(auto* p=std::getenv("LOCALAPPDATA"))return Path(p)/"UFC3-Reborn";
+ if(auto* p=std::getenv("LOCALAPPDATA"))return Path(p)/"UFC3MONS-P11-Camisas";
 #else
- if(auto* p=std::getenv("XDG_CONFIG_HOME"))return Path(p)/"ufc3-reborn";
- if(auto* p=std::getenv("HOME"))return Path(p)/".config/ufc3-reborn";
+ if(auto* p=std::getenv("XDG_CONFIG_HOME"))return Path(p)/"ufc3mons-p11-camisas";
+ if(auto* p=std::getenv("HOME"))return Path(p)/".config/ufc3mons-p11-camisas";
 #endif
  throw std::runtime_error("Pasta de preferencias do usuario indisponivel.");}
-inline fs::path Storage(const fs::path& game){return game/".ufc-reborn";}
+inline fs::path Storage(const fs::path& game){return game/".ufc3mons-p11-camisas";}
+inline void PrepareTestSaves(const fs::path& game){
+ const auto source=game/".ufc-reborn/user",dest=Storage(game)/"user";
+ if(fs::exists(dest)||!fs::is_directory(source))return;
+ // Copy once into a private staging directory. No overwrite or mutation of P7 saves.
+ fs::create_directories(Storage(game));const auto staging=Storage(game)/"saves-initial-copy";
+ if(fs::exists(staging))throw std::runtime_error("Copia de saves P11 incompleta. Preserve esta pasta e verifique antes de continuar.");
+ fs::copy(source,staging,fs::copy_options::recursive);
+ fs::rename(staging,dest);
+}
+
 inline bool HasGame(const fs::path& game){return !game.empty()&&fs::is_regular_file(game/"default.xex");}
 // L2: an ISO is played in place (mounted by the game, like Xenia). Only a small
 // folder beside it is created for saves, cache and settings.
@@ -76,6 +87,7 @@ inline Installation Discover(const fs::path& binary){
  }}return {};
 }
 inline void Register(const Installation& installation){
+ PrepareTestSaves(installation.game);
  if(!installation.iso.empty()){
   // The ISO itself is validated when it is selected (default.xex read in place).
   if(!fs::is_regular_file(installation.iso))throw std::runtime_error("A ISO escolhida nao foi encontrada.");
@@ -97,16 +109,24 @@ inline constexpr std::array<const char*,24> BindDefaults={"Semicolon,Space","Quo
 inline bool& UiEnglish(){static bool value=false;return value;}
 inline const char* T(const char* pt,const char* en){return UiEnglish()?en:pt;}
 struct Settings{
- bool fullscreen=true,fps=true,keyboard=true,mouse=false,vsync=true,diagnostics=false,async_shaders=false,fsr1=false;int output=0,game_language=1,ui_language=0;float sensitivity=1.f;
+ bool fullscreen=true,fps=true,keyboard=true,mouse=false,vsync=true,write_logs=false,full_training_rewards=false,double_creds=false,early_submit=true,memory_watch_blocks=true,gpu_timing_diag=false,gym_layout_fix=true,performance_diag=false,diagnostics=false,async_shaders=false,fsr1=false;int output=0,game_language=1,ui_language=0,texture_filter=3,present_mode=0;float sensitivity=1.f;
  std::array<std::string,24> binds;
  Settings(){for(size_t i=0;i<binds.size();++i)binds[i]=BindDefaults[i];}
  void Load(const fs::path& game){*this=Settings{};auto fixed=RegistryDirectory()/"config/launcher.ini";auto ini=ReadIni(fixed);if(!fs::exists(fixed)&&!game.empty()){auto legacy=Storage(game)/"config/launcher.ini";if(!fs::is_regular_file(legacy))legacy=Storage(game)/"config/legacy-v29.ini";if(fs::is_regular_file(legacy)){auto text=ReadText(legacy);AtomicText(RegistryDirectory()/"migration/launcher-before-user-folder.ini",text);AtomicText(fixed,text);ini=ReadIni(fixed);}}auto value=[&](const char* k,const char* fallback){return ini.contains(k)?ini[k]:std::string(fallback);};
   fullscreen=value("fullscreen","1")=="1";fps=value("fps","1")=="1";keyboard=value("keyboard","1")=="1";mouse=value("mouse","0")=="1";vsync=value("vsync","1")=="1";
-  diagnostics=value("diagnostics","0")=="1";async_shaders=value("async_shaders","0")=="1";fsr1=value("fsr1","0")=="1";
-  try{output=std::clamp(std::stoi(value("output","0")),0,3);game_language=std::clamp(std::stoi(value("game_language","1")),0,5);ui_language=std::clamp(std::stoi(value("ui_language","0")),0,1);sensitivity=std::clamp(std::stof(value("sensitivity","1")),0.01f,20.f);}catch(...){}
+  gpu_timing_diag=false;memory_watch_blocks=true;gym_layout_fix=true;performance_diag=false;early_submit=true;write_logs=value("write_logs","0")=="1";diagnostics=false;async_shaders=value("async_shaders","0")=="1";fsr1=value("fsr1","0")=="1";
+  full_training_rewards=value("full_training_rewards","0")=="1";
+  double_creds=value("double_creds","0")=="1";
+  try{output=std::clamp(std::stoi(value("output","0")),0,3);game_language=std::clamp(std::stoi(value("game_language","1")),0,5);ui_language=std::clamp(std::stoi(value("ui_language","0")),0,1);sensitivity=std::clamp(std::stof(value("sensitivity","1")),0.01f,20.f);texture_filter=std::clamp(std::stoi(value("texture_filter","3")),0,5);present_mode=std::clamp(std::stoi(value("present_mode","0")),0,2);}catch(...){}
   for(size_t i=0;i<binds.size();++i){auto k=std::string("keybind_")+BindNames[i];if(!ini.contains(k)&&ini.contains(BindNames[i]))ini[k]=ini[BindNames[i]];if(ini.contains(k)&&ini[k].size()<240)binds[i]=ini[k];}
  }
- std::string Text()const{std::ostringstream out;out<<"[Launcher]\nfullscreen="<<fullscreen<<"\nfps="<<fps<<"\nkeyboard="<<keyboard<<"\nmouse="<<mouse<<"\nvsync="<<vsync<<"\ndiagnostics="<<diagnostics<<"\nasync_shaders="<<async_shaders<<"\nfsr1="<<fsr1<<"\nui_language="<<ui_language<<"\noutput="<<output<<"\ngame_language="<<game_language<<"\nsensitivity="<<sensitivity<<'\n';for(size_t i=0;i<binds.size();++i)out<<"keybind_"<<BindNames[i]<<'='<<binds[i]<<'\n';return out.str();}
+ std::string Text()const{std::ostringstream out;out<<"[Launcher]\nfullscreen="<<fullscreen<<"\nfps="<<fps<<"\nkeyboard="<<keyboard<<"\nmouse="<<mouse<<"\nvsync="<<vsync<<"\ngpu_timing_diag="<<gpu_timing_diag<<"\nmemory_watch_blocks="<<memory_watch_blocks<<"\ngym_layout_fix="<<gym_layout_fix<<"\nperformance_diag="<<performance_diag<<"\nearly_submit="<<early_submit<<"\nfull_training_rewards="<<full_training_rewards<<"\ndouble_creds="<<double_creds<<"\nwrite_logs="<<write_logs<<"\ndiagnostics="<<diagnostics<<"\nasync_shaders="<<async_shaders<<"\nfsr1="<<fsr1<<"\nui_language="<<ui_language<<"\noutput="<<output<<"\ngame_language="<<game_language<<"\nsensitivity="<<sensitivity<<"\ntexture_filter="<<texture_filter<<"\npresent_mode="<<present_mode<<'\n';for(size_t i=0;i<binds.size();++i)out<<"keybind_"<<BindNames[i]<<'='<<binds[i]<<'\n';return out.str();}
  void Save(const fs::path&)const{AtomicText(RegistryDirectory()/"config/launcher.ini",Text());}
 };
+// Cheats read by the running game (path passed as --ufc_cheats_file); one key per cheat.
+inline fs::path CheatsFile(){return RegistryDirectory()/"config/cheats.ini";}
+inline std::string CheatsText(const Settings& s){return std::string("full_training_rewards=")+(s.full_training_rewards?"1":"0")+"\ndouble_career_creds="+(s.double_creds?"1":"0")+"\n";}
+
 }
+
+

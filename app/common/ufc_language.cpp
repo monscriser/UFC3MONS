@@ -1,5 +1,10 @@
+#include "ufc_shirt_aliases.h"
+#include "ufc_hud_trace_p6.h"
+#include "ufc_button_art_p6.h"
+#include "ufc_gym_layout.h"
 #include "ufc3_init.h"
 #include "ufc_localization.h"
+#include "ufc_reborn_footer.h"
 #include <rex/cvar.h>
 #include <rex/runtime.h>
 #include <rex/filesystem/vfs.h>
@@ -13,7 +18,8 @@ extern "C" void __wrap___imp__XGetLanguage(PPCContext& ctx,uint8_t* base){
  ctx.r3.u64=1;
 }
 
-void MountUfcLocalizedNames(rex::Runtime* runtime,const std::filesystem::path& game){int language=0;for(int i=0;i<6;++i)if(rex::cvar::GetFlagByName("user_language")==std::to_string(ufc::LanguageIds[i]))language=i;if(!language)return;
+void MountUfcLocalizedNames(rex::Runtime* runtime,const std::filesystem::path& game){MountUfcShirtAliases(runtime,game);MountUfcGymLayout(runtime,game);MountUfcXboxButtonArt(runtime,game);int language=0;for(int i=0;i<6;++i)if(rex::cvar::GetFlagByName("user_language")==std::to_string(ufc::LanguageIds[i]))language=i;if(!language)return;
+ LocalizeUfcRebornFooter(runtime,language);
  auto file=ufc::PrepareLocalizedNames(game,language);
  unsigned mounted=0;
  auto english=game/"DAT/ytx/EN";auto translated=game/"DAT/ytx"/ufc::LanguageCodes[language];
@@ -36,6 +42,19 @@ void MountUfcLocalizedNames(rex::Runtime* runtime,const std::filesystem::path& g
 REXCVAR_DEFINE_BOOL(ufc_language_diagnostics,false,"Tests","Trace bounded YTX guest opens to identify the active language alias");
 extern "C" void __real___imp__NtCreateFile(PPCContext&,uint8_t*);
 extern "C" void __wrap___imp__NtCreateFile(PPCContext& ctx,uint8_t* base){
+ std::string hud_path;uint32_t hud_root=0;const auto hud_handle_ptr=ctx.r3.u32;
+ if(REXCVAR_GET(ufc_hud_diagnostics)&&ctx.r5.u32){
+  const auto* attr=reinterpret_cast<const rex::system::X_OBJECT_ATTRIBUTES*>(base+ctx.r5.u32);
+  if(uint32_t(attr->name_ptr)){
+   const auto* name=reinterpret_cast<const rex::system::X_ANSI_STRING*>(base+uint32_t(attr->name_ptr));
+   const uint32_t data=name->pointer;const uint16_t length=name->length;
+   if(data&&length&&length<4096){
+    std::string path(reinterpret_cast<char*>(base+data),length);
+    if(ufc_hud_trace::Candidate(path)){hud_path=std::move(path);hud_root=attr->root_directory;}
+   }
+  }
+ }
+
  if(REXCVAR_GET(ufc_language_diagnostics)&&ctx.r5.u32){
   const auto* attr=reinterpret_cast<const rex::system::X_OBJECT_ATTRIBUTES*>(base+ctx.r5.u32);
   const uint32_t name_addr=attr->name_ptr;
@@ -47,4 +66,10 @@ extern "C" void __wrap___imp__NtCreateFile(PPCContext& ctx,uint8_t* base){
   }
  }
  __real___imp__NtCreateFile(ctx,base);
+ if(!hud_path.empty()){
+  uint32_t handle=0;
+  if((ctx.r3.u32&0x80000000)==0&&hud_handle_ptr)handle=(uint32_t(base[hud_handle_ptr])<<24)|(uint32_t(base[hud_handle_ptr+1])<<16)|(uint32_t(base[hud_handle_ptr+2])<<8)|base[hud_handle_ptr+3];
+  ufc_hud_trace::Open(hud_root,hud_path,ctx.r3.u32,handle);
+ }
+
 }

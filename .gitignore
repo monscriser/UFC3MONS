@@ -4,6 +4,10 @@
 **/ufc3_init.*
 **/ufc3_register.*
 **/ufc_offline_memory.h
+# Embed bytes taken from game files
+**/ufc_gym_patch.h
+**/ufc_button_art_data_p6.h
+**/ufc_shirt_alias_data.h
 **/assets/
 **/user/
 **/saves/

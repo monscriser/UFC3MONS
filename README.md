@@ -9,7 +9,7 @@ The project combines a configuration launcher, controller and keyboard support, 
 Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
 for the mod belongs to its creators.
 
-> **Current build: P14.5.** On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS**.
+> **Current build: BETA 1.1.** On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -29,7 +29,7 @@ for the mod belongs to its creators.
 | Cheats | Full Training Rewards (Auto Mode) and Double Money (Career), both off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to P14.5
+## What's new — P7 to BETA 1.1
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -43,6 +43,8 @@ P14.2 ── AMD FSR 1
 P14.3 ── two-thread GPU submission
 P14.4 ── Cheats tab: Full Training Rewards (Auto Mode)
 P14.5 ── Linux page-fault fix (Ally 20 W: 60 FPS) · Double Money cheat
+BETA 1.0 ── no slow motion from 60 to 30 FPS · direct resolve · Mods tab · optional shader pre-compile · texture filtering
+BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tearing by default) · RenderDoc overlay fix on Linux
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the

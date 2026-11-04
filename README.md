@@ -9,7 +9,7 @@ The project combines a configuration launcher, controller and keyboard support, 
 Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
 for the mod belongs to its creators.
 
-> **Current build: BETA 1.1.** On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
+> **Current build: BETA 1.2** (−28% GPU time per fight frame at 2× vs BETA 1.1; blood stays on the floor at high resolution). On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -29,7 +29,7 @@ for the mod belongs to its creators.
 | Cheats | Full Training Rewards (Auto Mode) and Double Money (Career), both off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.1
+## What's new — P7 to BETA 1.2
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -45,12 +45,28 @@ P14.4 ── Cheats tab: Full Training Rewards (Auto Mode)
 P14.5 ── Linux page-fault fix (Ally 20 W: 60 FPS) · Double Money cheat
 BETA 1.0 ── no slow motion from 60 to 30 FPS · direct resolve · Mods tab · optional shader pre-compile · texture filtering
 BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tearing by default) · RenderDoc overlay fix on Linux
+BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · long-path, thread and Linux priority fixes · video memory log
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the
 [P14.5 release](https://github.com/monscriser/UFC3MONS/releases).
 
 ## Performance
+
+### BETA 1.2 — GPU time per fight frame (desktop GPU, 2× scale, no FPS limit)
+
+```
+BETA 1.1   5.68 ms  ████████████████████████████
+BETA 1.2   4.06 ms  ████████████████████          −28 %
+```
+
+| Change in BETA 1.2 | Measured effect |
+|---|---|
+| Small render targets (≤ 320 px) stay native — blood fix | 2×: +13% FPS, −36% video memory |
+| Skip EDRAM copies into areas the game clears right after | −6.8% GPU time (same build, on vs off) |
+| Uploads grouped before render passes | +8% FPS without a limit (170 → 183) |
+
+RTX 5060 Ti, same fight replayed, runs alternated in one session. Handhelds were not measured for BETA 1.2.
 
 ### ROG Ally Z1 Extreme, Linux, 20 W — Reborn Career fight
 
@@ -105,6 +121,8 @@ guarantee higher performance than an emulator.
 - Vulkan rendering with project-specific SDK modifications.
 - Optional **AMD FSR 1** upscaling (off by default; not used on 16:10 screens or with black bars).
 - Two-thread GPU submission, constant/descriptor caches, register and memory-protection batching.
+- Native-size small render targets (`ufc_draw_resolution_scale_threshold`, 320): blood and decals stay in place at 2× and above (BETA 1.2).
+- No EDRAM copies into areas a depth/stencil or color clear overwrites right after (`ufc_clear_transfer_cutout`, BETA 1.2).
 - Linux page-fault fast path (P14.5).
 - Synchronous shaders and a 60 FPS limit. Console vsync stays enabled: the game simulation advances once per frame.
 - In-game FPS overlay toggled with **F6**.
@@ -124,7 +142,7 @@ guarantee higher performance than an emulator.
 | Configuration | Current development status |
 | --- | --- |
 | Reborn | Career and Exhibition playable on Windows and Linux; Career fight at 60 FPS on the ROG Ally at 20 W |
-| Original | Playable from XEX/folder or ISO. The invisible-opponent bug was fixed in R9.1; the 1 ms timer fix was added in P13 |
+| Original | Playable from XEX/folder or ISO. The invisible-opponent bug was fixed in R9.1; the 1 ms timer fix was added in P13. Known issue: a created fighter's shirt and beanie can look noisy (being investigated) |
 | Both | DLC supported. Wider gameplay, save, controller and hardware testing is still welcome |
 
 ## Getting Started
@@ -155,8 +173,9 @@ A clean build still requires a compatible SDK, code generated from your own game
 | `app/common/` | Shared integration and launcher snapshots |
 | `app/variants/` | Platform- and edition-specific integration files |
 | `app/fixes/` | Input/presentation fixes and optional diagnostic samplers |
-| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader |
+| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader (`beta12/` = current replacement files) |
 | `patches/` | Incremental changes against previous local snapshots |
+| `scripts/beta12/` | BETA 1.2 patch, build, packaging and measurement scripts (local paths) |
 | `scripts/historical/` | Original build and packaging recipes with local dependencies |
 | `docs/` | Development state, dependencies and publication information |
 | `LICENSES/` | Included third-party license |
@@ -164,7 +183,9 @@ A clean build still requires a compatible SDK, code generated from your own game
 
 ## Known Limitations
 
-- The game simulation advances once per frame: if FPS drops below 60, the action slows down too (being investigated).
+- Below 30 FPS the action still slows down (between 60 and 30 FPS the speed stays normal since BETA 1.0).
+- BETA 1.2 was built and started for Linux in a test environment, but not yet played on real Linux hardware.
+- Some players report a drop to ~5 FPS after a long session on 6 GB GPUs at 1080p (likely video memory). BETA 1.2 uses less video memory and logs it (`[ufc-vram]`).
 - Some menus, videos (Bink) and loading screens run at 30 FPS or drop briefly.
 - The fighter entrance can still run at 30 FPS on the Ally.
 - The Cheats were tested on Windows. The 20 W result was measured on the Ally (Linux).
@@ -174,7 +195,7 @@ A clean build still requires a compatible SDK, code generated from your own game
 
 ## Reporting Issues and Contributing
 
-Open an [issue](https://github.com/monscriser/UFC3MONS/issues) and include the build (for example P14.5), Original/Reborn
+Open an [issue](https://github.com/monscriser/UFC3MONS/issues) and include the build (for example BETA 1.2), Original/Reborn
 edition, operating system, CPU, GPU, driver, scene, game mode, reproduction steps, display settings and relevant logs.
 To get logs, turn on **Write logs** in **Saves & logs**, play, then use **Open all logs**. Screenshots are useful when
 private information is removed.

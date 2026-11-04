@@ -5,6 +5,16 @@
     "sha256": "8e065be1da2ff9a16b1f063d4636d8b67e6a654bb90583ea4332e66ac421bb18"
   },
   {
+    "file": "README.md",
+    "origin": "BETA 1.2",
+    "sha256": "76fc9d671ee11db39b50951beade0aab971628be031995b2b476b06ae45d6bed"
+  },
+  {
+    "file": "THIRD_PARTY_NOTICES.md",
+    "origin": "BETA 1.2",
+    "sha256": "fc339ebb311b1e381d562be28e6236d966d42f07c89956aebf8fbe04b81c2b86"
+  },
+  {
     "file": "app/common/diag_hooks.cpp",
     "origin": "BETA 1.1",
     "sha256": "2a6a1f6863ce2d2010470dccdfbb0a69bc357748fc031a9c6ddf4a3763ec2f90"
@@ -81,8 +91,8 @@
   },
   {
     "file": "app/common/ufc_build_identity.h",
-    "origin": "BETA 1.1",
-    "sha256": "e21bfdcf92e09145ad7b36f772163704b2191db37ec12616006c14a7ac57cdaa"
+    "origin": "BETA 1.2",
+    "sha256": "8affcb6269274ea33afd0fef8b71c5568756250096702854c34f0fc096f25d37"
   },
   {
     "file": "app/common/ufc_button_art_p6.h",
@@ -271,8 +281,8 @@
   },
   {
     "file": "app/common/ufc_session.h",
-    "origin": "BETA 1.1",
-    "sha256": "1b7b7ec69bebd56aee12cb2574f9a1d34fb0088f628a2023019b82dde04ff6cb"
+    "origin": "BETA 1.2",
+    "sha256": "bbc84c5a516a5d4710fa32ebb55f511de48d0ab298bdd35609b851e949ed7d65"
   },
   {
     "file": "app/common/ufc_shader_cleanup.h",
@@ -500,6 +510,76 @@
     "sha256": "3790a1bdf8a0ded54f280554f7f6027968d20e61c05b5d760d43413a4d799aee"
   },
   {
+    "file": "scripts/beta12/apply_blood.py",
+    "origin": "BETA 1.2",
+    "sha256": "63184b070027a0f2e9ca14b38f55dd0a311050a75d70c93bad41e8abf4250c8c"
+  },
+  {
+    "file": "scripts/beta12/apply_blood_p4.py",
+    "origin": "BETA 1.2",
+    "sha256": "cd293a0d4b831491d260d2ac0998282cda932d98d1d82937e610ef79e6c0f6f8"
+  },
+  {
+    "file": "scripts/beta12/apply_blood_p5.py",
+    "origin": "BETA 1.2",
+    "sha256": "d9534ba1f03c992a10708db9d569547442eddb06f5bd688a08155fcb0228af18"
+  },
+  {
+    "file": "scripts/beta12/apply_clear_cutout.py",
+    "origin": "BETA 1.2",
+    "sha256": "b6ea32c128d724e88c3a0779f91a07d879d98974c37af9fcf51da5b91ee07ac0"
+  },
+  {
+    "file": "scripts/beta12/apply_xfer_diag.py",
+    "origin": "BETA 1.2",
+    "sha256": "38861e564cb2881c282decc8762f0fa5717280c70d0f1bfc8746e98d0b655507"
+  },
+  {
+    "file": "scripts/beta12/between_breakdown.py",
+    "origin": "BETA 1.2",
+    "sha256": "8e53448dd49a308923f85d37a3d2cba53e8dd349163fb4cba1afe4a727cbdd56"
+  },
+  {
+    "file": "scripts/beta12/build_and_package_beta12.sh",
+    "origin": "BETA 1.2",
+    "sha256": "55a2cba9fc91fc67b1ac039c66adf646af0109503acf0276660e2d1084011c2c"
+  },
+  {
+    "file": "scripts/beta12/build_linux.py",
+    "origin": "BETA 1.2",
+    "sha256": "dd491fe6c5850323e203ed1f0173fd0fe45a9395cff74c0867cc350483aa6c4d"
+  },
+  {
+    "file": "scripts/beta12/build_runtime_all.sh",
+    "origin": "BETA 1.2",
+    "sha256": "9f3e50ff28e6f7a0349a13226683df6e9debbc9189d08729593461ad8e501563"
+  },
+  {
+    "file": "scripts/beta12/build_win.py",
+    "origin": "BETA 1.2",
+    "sha256": "23ef195b0e37483c43072069d591e44a6633678077d9910ce4825da90e52d7ab"
+  },
+  {
+    "file": "scripts/beta12/gpu_ab.ps1",
+    "origin": "BETA 1.2",
+    "sha256": "558c2c28728f2b6254c07c21934a53b442e188e45dceb33bbadd67fd853a11b3"
+  },
+  {
+    "file": "scripts/beta12/run_cut.ps1",
+    "origin": "BETA 1.2",
+    "sha256": "01fab7a6f1e7df2c8f9c5c7deeb9f5624c806c9654252f3406ed77584339a706"
+  },
+  {
+    "file": "scripts/beta12/stage_github_beta12.sh",
+    "origin": "BETA 1.2",
+    "sha256": "c449d20c9c1536e3fe65893e03c6589805a7942b21f8c98faa240ce619f5344b"
+  },
+  {
+    "file": "scripts/beta12/trace_groups.py",
+    "origin": "BETA 1.2",
+    "sha256": "ee2434cfb1e6ff073d5d07e6adb3db3f5daa9266abd6e68cff90936b72fbbc48"
+  },
+  {
     "file": "scripts/historical/build_gpu84.py",
     "origin": "r8-input-lock/build_gpu84.py",
     "sha256": "259d35acd8c01dd8929db9583e01078df0209e075db0db76e85680ad5fdcf72f"
@@ -623,6 +703,111 @@
     "file": "sdk-modified/beta/xma_context.cpp",
     "origin": "BETA 1.1",
     "sha256": "ad72df2271db1b2398771cf3856057a76910805da37f5a0af58b3b7d72f16ae4"
+  },
+  {
+    "file": "sdk-modified/beta12/README.md",
+    "origin": "BETA 1.2",
+    "sha256": "3657e6fedc586761a8573857f8614fd0bf632dc01526b270779056f33b174bb2"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "7886a4dc5c10925b96811d926b8d4c122ea29cf4d444e0468e6efda8567a532e"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/pipeline_cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "0a1a55376ba1348f253dff25eb47640c11eed11c2fbc1a37dfe544cb959914b8"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/rt_cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "5c72c487d07fb2106ccbdc646bf71a345bb3d8e9543ce60eefc47c913e8a3442"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/shared_memory.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "5402ac6565ee4250cdf5fb9b60182d86db8929be60dca7f92c29b63f4a778758"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/spirv_translator.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "cad351fb42171e2009d755d13cd1d1e5fd350dc7dbff62002ffdfabd3757d71b"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/tex_cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "8df940a3b5a1618159fcc22cb75c3645a564a0031ac02817213ac74de4b36de4"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/texture_cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "89ef8e2969b2f5d4c98e5b2a38a8341e977e33dc234e1f83aa6bdbce31546cde"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/vsm_r4.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "645012cced3f1c388d3393c478d6cecbb6c42a5ec3e92d9de839b37eb6573136"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/vulkan_command_processor.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "40fc13d41e169bc4af4df197ba07133574563c382e630ce159616d77849c7122"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/vulkan_render_target_cache.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "10128e458b9b4a022e219437be7c44502ee84c6afa883dff81d26783cfa9f22e"
+  },
+  {
+    "file": "sdk-modified/beta12/gpu/vulkan_render_target_cache.linux.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "7ed811c601b16a3935b9039a57aa9244117e6675ded0d9bd25dfaf687130eda5"
+  },
+  {
+    "file": "sdk-modified/beta12/include/rex/graphics/pipeline/render_target/cache.h",
+    "origin": "BETA 1.2",
+    "sha256": "d3dc6510e6840b4ecac4c117f5f7e011d53a9a45e60542325f9d50479e80db77"
+  },
+  {
+    "file": "sdk-modified/beta12/include/rex/graphics/pipeline/shader/spirv_translator.h",
+    "origin": "BETA 1.2",
+    "sha256": "c55728f58c6e806fef3269d4561c090078094e146e2001b80a0ded5aa4afd238"
+  },
+  {
+    "file": "sdk-modified/beta12/include/rex/graphics/pipeline/texture/cache.h",
+    "origin": "BETA 1.2",
+    "sha256": "ffff44e25e760c1dad453c5202d1cfa526ccd7204e02e3fd343efecd17ae21e3"
+  },
+  {
+    "file": "sdk-modified/beta12/include/rex/graphics/vulkan/render_target_cache.h",
+    "origin": "BETA 1.2",
+    "sha256": "3f859da567b8419beb371cbf33c4152c3a42136bc19fa37fff552e9b0389b0d3"
+  },
+  {
+    "file": "sdk-modified/beta12/runtime/content_manager.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "20225d8aa6934d07e468b91756736bf3a2fd464ef685d9140b3aa0709cdf45a5"
+  },
+  {
+    "file": "sdk-modified/beta12/runtime/threading_posix.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "57bb2e62244e46904d50e64f18b4f40a131a699443f2237d7127aae1abe9560d"
+  },
+  {
+    "file": "sdk-modified/beta12/runtime/xboxkrnl_audio_xma.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "75683e1c9cb46ac084780a6f867093656ba70b3bf3c637d71b48eb15469c5ed4"
+  },
+  {
+    "file": "sdk-modified/beta12/runtime/xma_context.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "26e8d86f96dfdb95a26c3118f537ae92f1e5e0820d95e7b82a94b425c8d1d8eb"
+  },
+  {
+    "file": "sdk-modified/beta12/runtime/xthread.cpp",
+    "origin": "BETA 1.2",
+    "sha256": "e9003a94b91387c7fda299cfcd0e2ec85c3bbfc88f966b96b96f66944de4ff79"
   },
   {
     "file": "sdk-modified/gpu/command_processor.cpp",

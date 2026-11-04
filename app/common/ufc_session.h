@@ -69,7 +69,7 @@ class Session{
   const bool shirt_aliases=!original&&qa_bool("UFC_QA_SHIRT_ALIASES",true);
   const bool memory_batch=qa_bool("UFC_QA_MEMORY_BATCH",true);
   const bool texture_cache=qa_bool("UFC_QA_TEXTURE_CACHE",true);
-  const bool early_submit=qa_bool("UFC_QA_EARLY_SUBMIT",true);
+  const bool early_submit=qa_bool("UFC_QA_EARLY_SUBMIT",true);const bool hoist_uploads=qa_bool("UFC_HOIST_UPLOADS",true);
   const bool memory_watch_blocks=qa_bool("UFC_QA_MEMORY_WATCH_BLOCKS",true);
   const bool gym_layout_fix=qa_bool("UFC_QA_GYM_LAYOUT_FIX",true);
   const bool forced_logs=std::getenv("UFC_FORCE_SESSION_LOGS")&&std::string_view(std::getenv("UFC_FORCE_SESSION_LOGS"))=="1";
@@ -97,7 +97,7 @@ class Session{
   if(write_logs){args.push_back("--ufc_session_id="+session_id);args.push_back(std::string("--ufc_session_edition=")+(original?"original":"reborn"));}
   if(!original)args.push_back(std::string("--ufc_reborn_gym_layout=")+(gym_layout_fix?"true":"false"));
   if(!original)args.push_back(std::string("--ufc_reborn_shirt_aliases=")+(shirt_aliases?"true":"false"));
-  args.push_back(std::string("--ufc_submit_before_wait=")+(early_submit?"true":"false"));
+  args.push_back(std::string("--ufc_submit_before_wait=")+(early_submit?"true":"false"));args.push_back(std::string("--ufc_hoist_shared_memory_uploads=")+(hoist_uploads?"true":"false"));
   args.push_back(std::string("--ufc_memory_watch_blocks=")+(memory_watch_blocks?"true":"false"));
   args.push_back("--ufc_memory_watch_verify=false");
   args.push_back(std::string("--ufc_memory_watch_batch=")+(memory_batch?"true":"false"));

@@ -45,7 +45,7 @@ P14.4 ── Cheats tab: Full Training Rewards (Auto Mode)
 P14.5 ── Linux page-fault fix (Ally 20 W: 60 FPS) · Double Money cheat
 BETA 1.0 ── no slow motion from 60 to 30 FPS · direct resolve · Mods tab · optional shader pre-compile · texture filtering
 BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tearing by default) · RenderDoc overlay fix on Linux
-BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · long-path, thread and Linux priority fixes · video memory log
+BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · Original: created fighter's shirt/hat fixed · long-path, thread and Linux priority fixes · video memory log
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the
@@ -103,9 +103,9 @@ verified on PC and on the Ally.
 Performance depends on the scene, hardware, driver, settings and shader-cache state. Static recompilation alone does not
 guarantee higher performance than an emulator.
 
-![Development progress: fight FPS, game speed below 60 FPS and GPU time (R8 to BETA 1.1)](media/performance-r9.png)
+![Development progress: fight FPS, game speed below 60 FPS and GPU time (R8 to BETA 1.2)](media/performance-r9.png)
 
-*Measurements from different sessions and hardware, not a controlled benchmark. BETA 1.0 and 1.1 were not measured on the ROG Ally.*
+*Measurements from different sessions and hardware, not a controlled benchmark. BETA 1.0 to 1.2 were not measured on the ROG Ally.*
 
 ## Features
 
@@ -142,7 +142,7 @@ guarantee higher performance than an emulator.
 | Configuration | Current development status |
 | --- | --- |
 | Reborn | Career and Exhibition playable on Windows and Linux; Career fight at 60 FPS on the ROG Ally at 20 W |
-| Original | Playable from XEX/folder or ISO. The invisible-opponent bug was fixed in R9.1; the 1 ms timer fix was added in P13. Known issue: a created fighter's shirt and beanie can look noisy (being investigated) |
+| Original | Playable from XEX/folder or ISO. The invisible-opponent bug was fixed in R9.1; the 1 ms timer fix was added in P13. Created fighters (CAF) now save their baked skin, shirt and hat correctly (BETA 1.2) |
 | Both | DLC supported. Wider gameplay, save, controller and hardware testing is still welcome |
 
 ## Getting Started

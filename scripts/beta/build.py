@@ -180,6 +180,21 @@ def build(name, control):
         text, n1 = re.subn(r'if\(!rex::cvar::SetFlagByName\("ht_direct_resolve","false"\) \|\|\s*rex::cvar::GetFlagByName\("ht_direct_resolve"\)!="false"\)\s*throw std::runtime_error\("Cannot disable the rejected direct-resolve path"\);', lambda m: dres, text)
         text, n2 = re.subn(r'rex::cvar::SetFlagByName\("ht_direct_resolve","false"\);', lambda m: dres, text)
         if n1 != 1: sys.exit(f"direct-resolve block not found once in {src}")
+        # U1 (BETA 1.2+): the Original forced readback_resolve=none, so the CPU never saw the GPU-baked CAF
+        # skin/clothing textures: the created fighter was saved with stale bytes (black silhouette, noisy shirt
+        # and beanie in the fight presentation). Same as Reborn: full readback, made cheap by the exact on-demand
+        # readback (copies only what the guest really reads). UFC_ORIGINAL_READBACK=none = old behaviour (A/B).
+        RB_OLD = 'if(!REXCVAR_GET(ufc_configurator)) rex::cvar::SetFlagByName("readback_resolve","none");'
+        RB_NEW = ('if(!REXCVAR_GET(ufc_configurator)){const char* rb=std::getenv("UFC_ORIGINAL_READBACK");'
+                  'const bool old_rb=rb&&std::string_view(rb)=="none";'
+                  'rex::cvar::SetFlagByName("readback_resolve",old_rb?"none":"full");'
+                  'if(!old_rb&&!std::getenv("UFC_ONDEMAND_READBACK")){'
+                  '\n#ifdef _WIN32\n_putenv_s("UFC_ONDEMAND_READBACK","1");_putenv_s("UFC_ONDEMAND_MIN","1");'
+                  '\n#else\nsetenv("UFC_ONDEMAND_READBACK","1",1);setenv("UFC_ONDEMAND_MIN","1",1);\n#endif\n}'
+                  'REXLOG_INFO("[ufc-u1] original readback_resolve={} ondemand={}",rex::cvar::GetFlagByName("readback_resolve"),std::getenv("UFC_ONDEMAND_READBACK")?std::getenv("UFC_ONDEMAND_READBACK"):"0");}')
+        if "original" in name:
+            if text.count(RB_OLD) != 1: sys.exit(f"Original readback line not found once in {src}")
+            text = text.replace(RB_OLD, RB_NEW)
         open(f"{out}/main.cpp", "w", encoding="utf-8").write(text)
         main = swap(main, src, f"{out}/main.cpp"); main[main.index("-o") + 1] = f"{out}/main{v['ext']}"
         # P14.5: main.cpp must see the same ufc_library.h (Settings layout) as the launcher UI, or the

@@ -188,10 +188,15 @@ def build(name, control):
         RB_NEW = ('if(!REXCVAR_GET(ufc_configurator)){const char* rb=std::getenv("UFC_ORIGINAL_READBACK");'
                   'const bool old_rb=rb&&std::string_view(rb)=="none";'
                   'rex::cvar::SetFlagByName("readback_resolve",old_rb?"none":"full");'
+                  # BETA 1.2 fix: at 2x/3x the scaled resolves cannot be deferred and the eager copy waited on the
+                  # GPU (59 -> 20-29 FPS at 3x). Read back only native-size resolves, as BETA 1.0 read none.
+                  # UFC_ORIGINAL_SKIP_SCALED=0 = read every scaled resolve (A/B).
+                  '{const char* sk=std::getenv("UFC_ORIGINAL_SKIP_SCALED");'
+                  'rex::cvar::SetFlagByName("ufc_readback_skip_scaled",(!old_rb&&!(sk&&std::string_view(sk)=="0"))?"true":"false");}'
                   'if(!old_rb&&!std::getenv("UFC_ONDEMAND_READBACK")){'
                   '\n#ifdef _WIN32\n_putenv_s("UFC_ONDEMAND_READBACK","1");_putenv_s("UFC_ONDEMAND_MIN","1");'
                   '\n#else\nsetenv("UFC_ONDEMAND_READBACK","1",1);setenv("UFC_ONDEMAND_MIN","1",1);\n#endif\n}'
-                  'REXLOG_INFO("[ufc-u1] original readback_resolve={} ondemand={}",rex::cvar::GetFlagByName("readback_resolve"),std::getenv("UFC_ONDEMAND_READBACK")?std::getenv("UFC_ONDEMAND_READBACK"):"0");}')
+                  'REXLOG_INFO("[ufc-u1] original readback_resolve={} skip_scaled={} ondemand={}",rex::cvar::GetFlagByName("readback_resolve"),rex::cvar::GetFlagByName("ufc_readback_skip_scaled"),std::getenv("UFC_ONDEMAND_READBACK")?std::getenv("UFC_ONDEMAND_READBACK"):"0");}')
         if "original" in name:
             if text.count(RB_OLD) != 1: sys.exit(f"Original readback line not found once in {src}")
             text = text.replace(RB_OLD, RB_NEW)
@@ -214,6 +219,17 @@ def build(name, control):
             tr[tr.index("-o") + 1] = f"{out}/{unit}{v['ext']}"
             print(f"[{name}] compile {unit}"); run(tr, v["cwd"], f"{out}/{unit}.log")
             link.insert(link.index("-o"), f"{out}/{unit}{v['ext']}")
+    # A13 test (off by default): UFC_A13_OBJS=<dir> swaps every recompiled chunk for that directory's objects
+    # (register options stage A, with the P6 hand edits of chunk 76 reapplied), win-reborn only.
+    a13 = os.environ.get("UFC_A13_OBJS")
+    if a13 and name == "win-reborn":
+        olds = [a for a in link if re.search(r"ufc3_(recomp\.\d+|init|register)(\.cpp)?\.obj$", a)]
+        news = sorted(os.path.join(a13, f) for f in os.listdir(a13) if f.endswith(".obj"))
+        at = link.index(olds[0])
+        link = [a for a in link if a not in olds]
+        link[at:at] = news
+        out = out + "-a13"; os.makedirs(out, exist_ok=True)
+        print(f"[{name}] A13: {len(olds)} recompiled objects -> {len(news)}")
     exe_index = link.index("-o") + 1
     link[exe_index] = f"{out}/{v['exe']}"
     print(f"[{name}] link"); run(link, v["cwd"], f"{out}/link.log")

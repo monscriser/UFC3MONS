@@ -27,6 +27,14 @@ Normal players do not need any of this: the defaults are the tested setup. These
 |---|---|---|---|---|
 | **U1** | env `UFC_ORIGINAL_READBACK=none` | not set | The Original edition now reads back GPU copies like Reborn (full readback + exact on-demand), so created fighters save their skin, shirt and hat correctly. Setting `none` restores the old behaviour | Positive control: old mode turned the fighter black again after saving; new mode fixed him. On-demand: 141 GB requested, 0.2 GB actually copied |
 
+## BETA 1.3 (Original edition performance)
+
+| ID | Parameter | Default | What it does | Measured / proof |
+|---|---|---|---|---|
+| **Skip scaled** | `ufc_readback_skip_scaled` (set by the Original; env `UFC_ORIGINAL_SKIP_SCALED=0` turns it off) | `true` in the Original, `false` in Reborn | Resolution-scaled copies are not read back (BETA 1.0 behaviour); CAF portrait captures still are | 3×: ~30 → 59 FPS in a fight; command thread 8.1 → 4.6 ms/frame |
+| **Fast check** | env `UFC_ONDEMAND_FASTCHECK=0` turns it off | on | The on-demand readback checks a page map before walking its whole list of past copies | 1×, minutes 2–3 of a fight: ~146 → ~170 FPS. Proof: 274,996 skipped walks, 0 differences; positive control (`UFC_ONDEMAND_FASTCHECK_VERIFY=positive`) 186,074 |
+| | env `UFC_ONDEMAND_FASTCHECK_VERIFY=1` | off | Test only: also runs the full walk and counts differences (`[ufc-ondemand-fastcheck]`) | — |
+
 ## Audio and system
 
 | ID | Parameter | Default | What it does | Measured / proof |

@@ -64,9 +64,11 @@ BETA 1.2   4.06 ms  ████████████████████
 |---|---|
 | Small render targets (≤ 320 px) stay native — blood fix | 2×: +13% FPS, −36% video memory |
 | Skip EDRAM copies into areas the game clears right after | −6.8% GPU time (same build, on vs off) |
-| Uploads grouped before render passes | +8% FPS without a limit (170 → 183) |
+| A1: memory uploads moved before render passes (`ufc_hoist_shared_memory_uploads`) | +8% FPS without a limit (169.7 → 183.4) |
 
 RTX 5060 Ti, same fight replayed, runs alternated in one session. Handhelds were not measured for BETA 1.2.
+
+Every change has a parameter to switch it on or off for tests: see [BETA 1.2 parameters](docs/PARAMETERS-BETA-1.2.md).
 
 ### ROG Ally Z1 Extreme, Linux, 20 W — Reborn Career fight
 

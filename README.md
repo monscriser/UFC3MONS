@@ -9,7 +9,7 @@ The project combines a configuration launcher, controller and keyboard support, 
 Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
 for the mod belongs to its creators.
 
-> **Current build: BETA 1.3** (Original edition performance fix: ~30 → 59 FPS at 3×, no slow-down during fights). BETA 1.2 (−28% GPU time per fight frame at 2× vs BETA 1.1; blood stays on the floor at high resolution). On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
+> **Current build: BETA 1.4** (Linux: the Original edition no longer freezes for seconds when a scene changes). BETA 1.3 (Original edition performance fix: ~30 → 59 FPS at 3×, no slow-down during fights). BETA 1.2 (−28% GPU time per fight frame at 2× vs BETA 1.1; blood stays on the floor at high resolution). On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -29,7 +29,7 @@ for the mod belongs to its creators.
 | Cheats | Full Training Rewards (Auto Mode) and Double Money (Career), both off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.3
+## What's new — P7 to BETA 1.4
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -47,6 +47,7 @@ BETA 1.0 ── no slow motion from 60 to 30 FPS · direct resolve · Mods tab �
 BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tearing by default) · RenderDoc overlay fix on Linux
 BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · Original: created fighter's shirt/hat fixed · long-path, thread and Linux priority fixes · video memory log
 BETA 1.3 ── Original edition: scaled copies no longer read back (3×: ~30 → 59 FPS) · no FPS decline during long fights
+BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene changes (page-protection query 1,000–10,000× faster)
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the
@@ -176,9 +177,9 @@ A clean build still requires a compatible SDK, code generated from your own game
 | `app/common/` | Shared integration and launcher snapshots |
 | `app/variants/` | Platform- and edition-specific integration files |
 | `app/fixes/` | Input/presentation fixes and optional diagnostic samplers |
-| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader (`beta12/` + `beta13/` = current replacement files) |
+| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader (`beta12/` + `beta13/` + `beta14/` = current replacement files) |
 | `patches/` | Incremental changes against previous local snapshots |
-| `scripts/beta12/`, `scripts/beta13/` | BETA 1.2/1.3 patch, build, packaging and measurement scripts (local paths) |
+| `scripts/beta12/`, `scripts/beta13/`, `scripts/beta14/` | BETA 1.2/1.3/1.4 patch, build, packaging and measurement scripts (local paths) |
 | `scripts/historical/` | Original build and packaging recipes with local dependencies |
 | `docs/` | Development state, dependencies and publication information |
 | `LICENSES/` | Included third-party license |

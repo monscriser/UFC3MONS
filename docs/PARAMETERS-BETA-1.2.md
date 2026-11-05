@@ -35,6 +35,13 @@ Normal players do not need any of this: the defaults are the tested setup. These
 | **Fast check** | env `UFC_ONDEMAND_FASTCHECK=0` turns it off | on | The on-demand readback checks a page map before walking its whole list of past copies | 1×, minutes 2–3 of a fight: ~146 → ~170 FPS. Proof: 274,996 skipped walks, 0 differences; positive control (`UFC_ONDEMAND_FASTCHECK_VERIFY=positive`) 186,074 |
 | | env `UFC_ONDEMAND_FASTCHECK_VERIFY=1` | off | Test only: also runs the full walk and counts differences (`[ufc-ondemand-fastcheck]`) | — |
 
+## BETA 1.4 (Linux, Original edition freezes)
+
+| ID | Parameter | Default | What it does | Measured / proof |
+|---|---|---|---|---|
+| **Procmap query** | env `UFC_PROCMAP_QUERY=0` turns it off | on (Linux 6.11+; older kernels fall back automatically) | `ufc_linux::Query` asks the kernel for one address with the `PROCMAP_QUERY` ioctl instead of reading the whole `/proc/self/maps`. The on-demand readback calls it for every 4 KB page it watches | One query 0.7–5.5 ms → 0.5 µs. Proof: 500,000 queries, 0 differences; positive control (`UFC_PROCMAP_VERIFY=positive`) 374,866 |
+| | env `UFC_PROCMAP_VERIFY=1` | off | Test only: also runs the old parser on every query and counts differences (`[ufc-procmap-verify]` on stderr) | — |
+
 ## Audio and system
 
 | ID | Parameter | Default | What it does | Measured / proof |

@@ -6,7 +6,7 @@
 #include <sstream>
 #include <string>
 #ifndef UFC3MONS_BUILD_ID
-#define UFC3MONS_BUILD_ID "UFC3MONS-BETA1.4-2026-11-05"
+#define UFC3MONS_BUILD_ID "UFC3MONS-BETA1.5-2026-11-05"
 #endif
 namespace ufc {
 inline constexpr const char* BuildId=UFC3MONS_BUILD_ID;

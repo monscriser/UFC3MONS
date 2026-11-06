@@ -42,6 +42,20 @@ Normal players do not need any of this: the defaults are the tested setup. These
 | **Procmap query** | env `UFC_PROCMAP_QUERY=0` turns it off | on (Linux 6.11+; older kernels fall back automatically) | `ufc_linux::Query` asks the kernel for one address with the `PROCMAP_QUERY` ioctl instead of reading the whole `/proc/self/maps`. The on-demand readback calls it for every 4 KB page it watches | One query 0.7–5.5 ms → 0.5 µs. Proof: 500,000 queries, 0 differences; positive control (`UFC_PROCMAP_VERIFY=positive`) 374,866 |
 | | env `UFC_PROCMAP_VERIFY=1` | off | Test only: also runs the old parser on every query and counts differences (`[ufc-procmap-verify]` on stderr) | — |
 
+## BETA 1.5 (CPU per draw, GPU-commands thread)
+
+All on by default. Each one skips work only when every input is the same as in the previous draw. Proof: verifier runs the full path anyway and compares (fight, all four together: 4.96 M + 3.44 M + 9.70 M + 4.29 M comparisons, 0 differences); positive controls detect every perturbed case.
+
+| Parameter | What it does | Measured (per draw, same scene) |
+|---|---|---|
+| `ufc_rt_update_skip` | B6: skip render-target setup when nothing changed (key of all inputs + EDRAM ownership generation) | setup −44% |
+| `ufc_sampler_reuse` | B4/B10: reuse the previous draw's samplers (same shaders, fetch constants, submission) | samplers −19% |
+| `ufc_translation_memo` | B11: reuse the shader translation (no mutex/map lookup) | small |
+| `ufc_pipeline_desc_memo` | B11: reuse the pipeline description when all its inputs match | small |
+| `*_verify` / `*_verify_break` | Test only: exact proof / positive control | — |
+
+Together: −0.14 µs per draw, about −5% of the GPU-commands thread. Vertex buffers, texture requests and constant writes were measured too: that time is real new data every draw, nothing to skip.
+
 ## Audio and system
 
 | ID | Parameter | Default | What it does | Measured / proof |

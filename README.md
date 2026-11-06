@@ -48,7 +48,7 @@ BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tea
 BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · Original: created fighter's shirt/hat fixed · long-path, thread and Linux priority fixes · video memory log
 BETA 1.3 ── Original edition: scaled copies no longer read back (3×: ~30 → 59 FPS) · no FPS decline during long fights
 BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene changes (page-protection query 1,000–10,000× faster)
-BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences)
+BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences) · Reborn crash fix (jump table cut to 7 of 32 entries)
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the

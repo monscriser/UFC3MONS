@@ -54,6 +54,8 @@ All on by default. Each one skips work only when every input is the same as in t
 | `ufc_pipeline_desc_memo` | B11: reuse the pipeline description when all its inputs match | small |
 | `*_verify` / `*_verify_break` | Test only: exact proof / positive control | — |
 
+**Reborn crash fix (no switch):** `sub_82B50588` had a 32-entry jump table (`cmplwi r29,31`, table at `0x82B50690`) recompiled with 7 cases, so indices 7–31 hit `__builtin_trap` (`0xC000001D`). The default case now dispatches on the real target loaded from the guest table (`0x82B5077C` / `0x82B50764`, as in the Original generation); anything else still traps. It was the only cut table among the 1,089 Reborn switches. Scripts in `scripts/beta15/crash-switch/`.
+
 Together: −0.14 µs per draw, about −5% of the GPU-commands thread. Vertex buffers, texture requests and constant writes were measured too: that time is real new data every draw, nothing to skip.
 
 ## Audio and system

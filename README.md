@@ -9,7 +9,7 @@ The project combines a configuration launcher, controller and keyboard support, 
 Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
 for the mod belongs to its creators.
 
-> **Current build: BETA 1.5** (~5% less CPU work per draw on the GPU-commands thread, the heaviest thread on the ROG Ally). BETA 1.4 (Linux: the Original edition no longer freezes for seconds when a scene changes). BETA 1.3 (Original edition performance fix: ~30 → 59 FPS at 3×, no slow-down during fights). BETA 1.2 (−28% GPU time per fight frame at 2× vs BETA 1.1; blood stays on the floor at high resolution). On the **ROG Ally at 20 W**, a Reborn **Career fight runs at a locked 60 FPS** (measured on P14.5).
+> **BETA 1.6 source** includes safer GPU readback for created fighters, reusable readback buffers, and an experimental Auto reward option for Career techniques. [Read the BETA 1.6 notes](docs/GITHUB-RELEASE-BETA1.6.md).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -26,10 +26,10 @@ for the mod belongs to its creators.
 | Editions | Reborn folder, Original (XEX or folder) or ISO, read directly without extracting |
 | DLC | Installed from a folder in the launcher; DLC fighters appear on their own select page |
 | Launcher | Portuguese (Brazil), English and Spanish; Add to Steam with artwork |
-| Cheats | Full Training Rewards (Auto Mode) and Double Money (Career), both off by default |
+| Cheats | Full Training Rewards (Auto Mode), experimental Maximum Technique Reward (Auto), and Double Money (Career). All are off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.5
+## What's new — P7 to BETA 1.6
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -49,6 +49,7 @@ BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copie
 BETA 1.3 ── Original edition: scaled copies no longer read back (3×: ~30 → 59 FPS) · no FPS decline during long fights
 BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene changes (page-protection query 1,000–10,000× faster)
 BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences) · Reborn crash fix (jump table cut to 7 of 32 entries)
+BETA 1.6 ── safer GPU readback for created fighters · reuse readback buffers up to 16 MiB · experimental Auto reward for Career techniques
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the
@@ -129,6 +130,7 @@ guarantee higher performance than an emulator.
 - Native-size small render targets (`ufc_draw_resolution_scale_threshold`, 320): blood and decals stay in place at 2× and above (BETA 1.2).
 - No EDRAM copies into areas a depth/stencil or color clear overwrites right after (`ufc_clear_transfer_cutout`, BETA 1.2).
 - Linux page-fault fast path (P14.5).
+- BETA 1.6 validates the game memory used for shader readback and reuses buffers for requests up to 16 MiB.
 - Synchronous shaders and a 60 FPS limit. Console vsync stays enabled: the game simulation advances once per frame.
 - In-game FPS overlay toggled with **F6**.
 
@@ -137,6 +139,9 @@ guarantee higher performance than an emulator.
   same save and drill, 2 stars and +3 Speed off → 4 stars and +5 Speed on, saved to the fighter.
 - **Double Money:** Creds earned from each Career fight count twice, within the game's own maximum. Tested: a fight
   worth 1,600 Creds paid 3,200, shown and saved.
+- **Maximum reward for learning/improving techniques (Auto, experimental):** The Camp Sessions hook targets the highest
+  grade and 1,000 points for Auto technique sessions. The game handles move XP and level progression. The reward and its
+  persistence after accepting the result still need gameplay confirmation.
 
 ### Reborn
 - Shirts for all **342** fighter models (each model keeps the same shirt).
@@ -165,7 +170,7 @@ GitHub's **Download ZIP** button downloads source code, not a playable game. No 
 
 ### For Developers
 1. Read [dependencies and build limitations](docs/DEPENDENCIAS.md).
-2. Inspect `app/variants/` for the platform and edition you are studying; these files take precedence over shared snapshots.
+2. Use `app/common/` for the BETA 1.6 launcher and Career reward changes. Refer to `app/variants/` for the historical platform- and edition-specific snapshots.
 3. Review `sdk-modified/` and the incremental changes in `patches/`.
 4. Treat `scripts/historical/` as records of the original environment, not portable build commands.
 
@@ -178,7 +183,7 @@ A clean build still requires a compatible SDK, code generated from your own game
 | `app/common/` | Shared integration and launcher snapshots |
 | `app/variants/` | Platform- and edition-specific integration files |
 | `app/fixes/` | Input/presentation fixes and optional diagnostic samplers |
-| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader (`beta12/` + `beta13/` + `beta14/` = current replacement files) |
+| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader. The updated Vulkan renderer is in `beta15/gpu/` |
 | `patches/` | Incremental changes against previous local snapshots |
 | `scripts/beta12/`, `scripts/beta13/`, `scripts/beta14/` | BETA 1.2/1.3/1.4 patch, build, packaging and measurement scripts (local paths) |
 | `scripts/historical/` | Original build and packaging recipes with local dependencies |
@@ -193,7 +198,7 @@ A clean build still requires a compatible SDK, code generated from your own game
 - Some players report a drop to ~5 FPS after a long session on 6 GB GPUs at 1080p (likely video memory). BETA 1.2 uses less video memory and logs it (`[ufc-vram]`).
 - Some menus, videos (Bink) and loading screens run at 30 FPS or drop briefly.
 - The fighter entrance can still run at 30 FPS on the Ally.
-- The Cheats were tested on Windows. The 20 W result was measured on the Ally (Linux).
+- Full Training Rewards and Double Money were tested on Windows. The BETA 1.6 technique reward still needs gameplay validation. The 20 W result was measured on the Ally (Linux).
 - External overlays may report the compositor's frame rate; F6 reports the game's own frame counter.
 - Historical recipes reuse local objects and precompiled headers. Portable, reproducible builds are pending.
 - Generated game code and `ufc_offline_memory.h` are deliberately excluded from the sources.

@@ -6,8 +6,8 @@
   },
   {
     "file": "README.md",
-    "origin": "BETA 1.2",
-    "sha256": "76fc9d671ee11db39b50951beade0aab971628be031995b2b476b06ae45d6bed"
+    "origin": "BETA 1.6",
+    "sha256": "0aeb4d7da26d66ba5b041709be0490e5e5112f83ba39d7de83b074a6ef0ac1cd"
   },
   {
     "file": "THIRD_PARTY_NOTICES.md",
@@ -91,8 +91,8 @@
   },
   {
     "file": "app/common/ufc_build_identity.h",
-    "origin": "BETA 1.2",
-    "sha256": "8affcb6269274ea33afd0fef8b71c5568756250096702854c34f0fc096f25d37"
+    "origin": "BETA 1.6",
+    "sha256": "0294b85ba49df2f2dd37630940bc99c5e3afb01df3d949d4bbeca9d7b1dcb759"
   },
   {
     "file": "app/common/ufc_button_art_p6.h",
@@ -181,8 +181,8 @@
   },
   {
     "file": "app/common/ufc_launcher_ui.cpp",
-    "origin": "BETA 1.1",
-    "sha256": "a70583f2e087066937ceb9389effcd8aa5206b7c9e3b2f950cff864791ec5d4c"
+    "origin": "BETA 1.6",
+    "sha256": "98c98aac399ed691887d20bcd6c974598fec57e95546b78ad506161f3bdd1a11"
   },
   {
     "file": "app/common/ufc_launcher_ui.h",
@@ -191,8 +191,8 @@
   },
   {
     "file": "app/common/ufc_library.h",
-    "origin": "BETA 1.1",
-    "sha256": "8961e07b181ce78d82debfbe678c0d8430af85c03f8a17519ed7eca59f3a22c2"
+    "origin": "BETA 1.6",
+    "sha256": "9e3e9124be40a68c73260c7712aef6b9bfd6f3172d8b693a27ca05ec7ac6e913"
   },
   {
     "file": "app/common/ufc_linux_crash.h",
@@ -281,8 +281,8 @@
   },
   {
     "file": "app/common/ufc_session.h",
-    "origin": "BETA 1.2",
-    "sha256": "bbc84c5a516a5d4710fa32ebb55f511de48d0ab298bdd35609b851e949ed7d65"
+    "origin": "BETA 1.6",
+    "sha256": "3b798bd02faecf6d56f8fc358249557a9e3e2b664744f8f4d269e4a67677776b"
   },
   {
     "file": "app/common/ufc_shader_cleanup.h",
@@ -316,8 +316,8 @@
   },
   {
     "file": "app/common/ufc_training_rewards.cpp",
-    "origin": "BETA 1.1",
-    "sha256": "77799a205f4bb3bd69750e2e36cae82d516bad59dd66891b6ae0628ffc7e2dcb"
+    "origin": "BETA 1.6",
+    "sha256": "2f11aa2bc2e81fc49bb18aea134ecd47acbe4c6bffc4c1a10143db06aa3d1ad4"
   },
   {
     "file": "app/common/ufc_vector_diagnostic_p5.h",
@@ -913,5 +913,45 @@
     "file": "sdk-modified/shaders/copy_delta128.comp",
     "origin": "lossless-delta-prototype/copy_delta128.comp",
     "sha256": "3eaa55f0ac0b8f45c7adfc1b686802cdb326703e5115d1f14855ac6cdb2f4261"
+  },
+  {
+    "file": "docs/DEPENDENCIAS.md",
+    "origin": "BETA 1.6",
+    "sha256": "da77d51575fcc349faaebb562074048075bde8814ea546422d3ffdf863074241"
+  },
+  {
+    "file": "docs/GITHUB-RELEASE-BETA1.6.md",
+    "origin": "BETA 1.6",
+    "sha256": "4629a1b25401f1e6a4269367a847fa42dbf8d44f1c22948f54aae1a41767c2b2"
+  },
+  {
+    "file": "scripts/beta15/build_all.py",
+    "origin": "BETA 1.6",
+    "sha256": "011584aa92011347d0e6c449c8ae15d114c9babf2c2dd14e13d205cfd0c7958b"
+  },
+  {
+    "file": "scripts/beta15/build_gpu_linux_b15.py",
+    "origin": "BETA 1.6",
+    "sha256": "ce40ae47821f7b668a3454d1955daf5f39bc67415af4da9e7f1f529b4e273a6a"
+  },
+  {
+    "file": "scripts/beta15/build_gpu_linux_b15.sh",
+    "origin": "BETA 1.6",
+    "sha256": "d61389a8ec46ef727bf248dd2322810ee9c2435a2b3d8768c5611e985263030c"
+  },
+  {
+    "file": "scripts/beta15/crash-switch/build.py",
+    "origin": "BETA 1.6",
+    "sha256": "616d0e6e168e8c3524af9f71b2635d52b9ee989ca14673fc1fc9643ee68443ae"
+  },
+  {
+    "file": "sdk-modified/beta15/gpu/ufc_memexport_snapshot.h",
+    "origin": "BETA 1.6",
+    "sha256": "1bf0e2e3f621ff677ff913dd5a284c03374a3285e25ae5d886c4af962a505d55"
+  },
+  {
+    "file": "sdk-modified/beta15/gpu/vcp_b11.cpp",
+    "origin": "BETA 1.6",
+    "sha256": "3757ab33bcbb03947b8b8458e6e89b30aa6851097fc1def61fae78d17124e01e"
   }
 ]

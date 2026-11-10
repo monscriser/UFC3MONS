@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """BETA 1.5: B6 + B4/B10 + B11 sobre a biblioteca Linux da BETA 1.4. Item A1 isolated video library (Linux): BETA 1.1 base + ufc_hoist_shared_memory_uploads (default false) + GPU readback verifier."""
 import json, subprocess, sys, hashlib, os, shlex
+from pathlib import Path
 
 W = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/gpu-port-blood"
 PORT = "/root/ufc-port"
@@ -8,6 +9,7 @@ CWD = "/mnt/e/UFC3-RexGlue-Lab/build/sdk-linux"
 TD = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/optimization-p10-25-10/texture-descriptors/linux"
 MODE = "fix" if "--fix" in sys.argv else "control"
 OUT = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/beta15-05-11/out-linux-" + MODE
+OUT = os.environ.get("UFC3_BUILD_OUT", OUT)
 FIXINC = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/deck-stalls-05-11/fix-inc"
 os.makedirs(OUT, exist_ok=True)
 
@@ -47,8 +49,15 @@ run(overlay(vsm_args), "/", OUT + "/vsm.log")
 comp = json.load(open(TD + "/compile.command.json"))
 o = comp.index("-o") + 1
 vobj = comp[o]
-comp = ["/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/b11-pipeline-memo-05-11/vcp_b11.cpp" if x == vsrc else x for x in comp]
+vcp_work = Path(W).parent / "b11-pipeline-memo-05-11"
+project = Path(__file__).resolve().parents[2]
+vcp_source = (project / "sdk-modified/beta15/gpu/vcp_b11.cpp"
+              if MODE == "fix" else vcp_work / "vcp_b11.cpp")
+comp = [str(vcp_source) if x == vsrc else x for x in comp]
 comp[o] = OUT + "/vcp.o"
+if MODE == "fix":
+  kit_headers = project.parent / "dependencias"
+  comp[1:1] = ["-iquote", str(kit_headers), "-iquote", str(vcp_work)]
 print("compile vcp")
 run(overlay(comp), "/", OUT + "/vcp.log")
 

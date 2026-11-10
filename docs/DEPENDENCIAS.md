@@ -12,4 +12,14 @@ Este pacote não é suficiente para reconstruir os executáveis R9 sozinho.
 
 Os snapshots common são uma base de integração, não evidência de que cada um dos objetos herdados da R9 foi recompilado desse exato arquivo. As receitas históricas registram os objetos efetivamente usados. Não houve auditoria completa de reprodução dos objetos herdados nesta separação.
 
+## BETA 1.6
+
+As receitas em `scripts/beta15/` usam o renderer atualizado de `sdk-modified/beta15/gpu/` para a compilação com a correção. Elas ainda dependem do ambiente WSL original, do Clang 19 e dos objetos históricos. Coloque os três headers privados em `dependencias/` ao lado da pasta do repositório. A receita também procura na pasta histórica do renderer.
+
+- `ufc_texture_set_cache_p10.h`
+- `ufc_constant_set_cache.h`
+- `ufc_hoist_uploads.h`
+
+Para relinkar os executáveis com as mudanças de Carreira, a receita histórica `scripts/beta15/crash-switch/build.py` aceita `UFC3_APP_SOURCE` com o caminho absoluto para `app/common` no WSL. Ela ainda usa os comandos e objetos das árvores P12 e P13.
+
 Nenhum SDK completo, jogo, ISO, save, cache, captura RenderDoc ou executável foi incluído.

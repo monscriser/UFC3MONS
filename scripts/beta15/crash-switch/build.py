@@ -5,7 +5,8 @@ import json, os, re, subprocess, sys, hashlib, shutil
 P14 = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/launcher-p14-28-10"
 P12 = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/shirt-variety-p12-27-10/release"
 P13O = "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-27/continue-a-investiga-o-da-faixa/work/p13-original"
-SRC12, SRC14 = P12 + "/src", P14 + "/src"
+SRC12 = P12 + "/src"
+SRC14 = os.environ.get("UFC3_APP_SOURCE", P14 + "/src")
 V = {
  "win-reborn":  dict(dir=P12+"/apps/windows/reborn", main=P12+"/apps/windows/reborn/main.command.json", ui=P12+"/apps/windows/reborn/ufc_launcher_ui.command.json", link=P12+"/apps/windows/reborn/link.command.json", cwd="/mnt/e/UFC3-RexGlue-Lab/build/native-r9-sdk", ext=".obj", exe="ufc3-launcher-l1.exe"),
  "win-original":dict(dir=P13O, main=P13O+"/compile.command.json", ui=P12+"/apps/windows/original/ufc_launcher_ui.command.json", link=P13O+"/link-new.command.json", cwd="/mnt/e/UFC3-RexGlue-Lab/build/original-v48", ext=".obj", exe="ufc3-original-v48.exe"),

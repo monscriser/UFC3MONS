@@ -2,6 +2,7 @@
 """UFC3MONS video DLL (Windows) + B6 + B4/B10 + B11 (05/11).: BETA 1.1 base + A1 hoist + A16 + B57 + B56 + VRAM log + U4 blood fix
 (ufc_draw_resolution_scale_threshold, port of Xenia Canary 74db632). Headers in inc/ take precedence."""
 import json, subprocess, sys, hashlib, os, shlex
+from pathlib import Path
 
 W = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/gpu-port-blood"
 V60 = "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-20/continue-o-ufc3mons-usando-a-skill/work"
@@ -12,6 +13,7 @@ TD = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/optimization-p10-25-10/texture-d
 SC = "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-27/continue-a-investiga-o-da-faixa/work/stale-check"
 MEAS = "--measure" in sys.argv
 OUT = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/b11-pipeline-memo-05-11" + ("/out-win-measure" if MEAS else "/out-win")
+OUT = os.environ.get("UFC3_BUILD_OUT", OUT)
 os.makedirs(OUT, exist_ok=True)
 
 os.makedirs(PORT + "/overlay/rex/graphics/vulkan", exist_ok=True)
@@ -103,8 +105,16 @@ comp = json.load(open(TD + "/win/compile.command.json"))
 o = comp.index("-o") + 1
 c_idx = comp.index("-c") + 1
 vobj = comp[o]
-comp[c_idx] = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/b11-pipeline-memo-05-11" + ("/vcp_b11_measure.cpp" if MEAS else "/vcp_b11.cpp")
+vcp_work = Path(W).parent / "b11-pipeline-memo-05-11"
+if MEAS:
+    comp[c_idx] = str(vcp_work / "vcp_b11_measure.cpp")
+else:
+    project = Path(__file__).resolve().parents[2]
+    comp[c_idx] = str(project / "sdk-modified/beta15/gpu/vcp_b11.cpp")
 comp[o] = OUT + "/vcp.obj"
+if not MEAS:
+    # Retain the original source directory for quoted relative shader includes.
+    comp[1:1] = ["-iquote", str(project.parent / "dependencias"), "-iquote", str(vcp_work)]
 print("compile vcp")
 run(overlay(comp), CWD, OUT + "/vcp.log")
 

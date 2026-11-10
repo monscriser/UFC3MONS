@@ -23,6 +23,8 @@
 
 REXCVAR_DEFINE_BOOL(ufc_full_training_rewards, false, "Cheats",
                     "Career automatic training gets the best Manual Training grade; default OFF");
+REXCVAR_DEFINE_BOOL(ufc_full_technique_rewards, false, "Cheats",
+                    "Career automatic Camp Sessions technique results receive the maximum reward");
 REXCVAR_DEFINE_STRING(ufc_cheats_file, "", "Cheats",
                       "Launcher cheats.ini, re-read at each automatic training so the Cheats tab works while the game runs");
 
@@ -87,6 +89,51 @@ REX_HOOK_RAW(sub_822FCF38) {
                   REX_LOAD_U32(object + 20));
     }
   }
+}
+
+// Camp Sessions finalize a technique in sub_822FAD70. The Auto branch of
+// sub_822F8EF0 rolls a grade, stores it at +92 and stores its score at +88.
+// The caller then computes the new move XP and level from that grade.
+extern "C" void __imp__sub_822F8EF0(PPCContext& ctx, uint8_t* base);
+
+REX_HOOK_RAW(sub_822F8EF0) {
+  constexpr uint32_t kFinalizeTechniqueCaller = 0x822FAD84u;
+  constexpr uint32_t kCareerManager = 0x8335D4A0u;
+  constexpr uint32_t kMaximumTechniqueScore = 1000;
+  constexpr uint32_t kBestGrade = 0;
+  constexpr uint32_t kGradeExperienceTable = 697 * 4;
+
+  const uint32_t session = ctx.r3.u32;
+  const uint32_t auto_mode = ctx.r4.u32;
+  const bool finalizing = uint32_t(ctx.lr) == kFinalizeTechniqueCaller;
+  __imp__sub_822F8EF0(ctx, base);
+
+  if (!finalizing || !auto_mode || !session) return;
+  const uint32_t manager = REX_LOAD_U32(kCareerManager);
+  if (!manager || REX_LOAD_U32(manager + 60) != session) return;
+
+  const int from_file = CheatFromFile("full_technique_rewards");
+  const bool enabled =
+      from_file >= 0 ? from_file == 1 : REXCVAR_GET(ufc_full_technique_rewards);
+  if (!enabled) return;
+
+  const uint32_t table = REX_LOAD_U32(manager + 220);
+  const uint32_t grade = REX_LOAD_U32(session + 92);
+  const uint32_t score = REX_LOAD_U32(session + 88);
+  if (!table || grade > 3 || score > kMaximumTechniqueScore) return;
+
+  // Use the game's reward table and let the caller calculate XP and level,
+  // including its existing cap and commit behavior.
+  const uint32_t base_xp =
+      REX_LOAD_U32(table + kGradeExperienceTable + grade * 4) & 0xFFFFu;
+  const uint32_t best_xp = REX_LOAD_U32(table + kGradeExperienceTable) & 0xFFFFu;
+  if (best_xp < base_xp) return;
+  REX_STORE_U32(session + 92, kBestGrade);
+  REX_STORE_U32(session + 88, kMaximumTechniqueScore);
+
+  REXLOG_INFO("[ufc-technique-reward] technique={} mode={} score={}->{} grade={}->{} table_xp={}->{}",
+              REX_LOAD_U16(session + 6), auto_mode, score, kMaximumTechniqueScore,
+              grade, kBestGrade, base_xp, best_xp);
 }
 
 REXCVAR_DEFINE_BOOL(ufc_double_career_creds, false, "Cheats",

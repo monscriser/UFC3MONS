@@ -54,6 +54,7 @@ REXCVAR_DEFINE_BOOL(ht_float_constant_runs_verify_break, false, "GPU/Vulkan/Debu
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -85,6 +86,8 @@ REXCVAR_DEFINE_BOOL(ht_float_constant_runs_verify_break, false, "GPU/Vulkan/Debu
 #include <rex/kernel/xboxkrnl/video.h>
 #include <rex/types.h>
 #include <rex/memory/utils.h>
+#include <rex/thread/mutex.h>
+#include "ufc_memexport_snapshot.h"
 #include <rex/ui/flags.h>
 #include <rex/ui/vulkan/presenter.h>
 #include <rex/ui/vulkan/util.h>
@@ -5629,15 +5632,17 @@ bool VulkanCommandProcessor::IssueDraw(xenos::PrimitiveType prim_type, uint32_t 
   if (REXCVAR_GET(ufc_cp_fast_registers)
           ? (!memexport_ranges_.empty() && IsReadbackMemexportEnabled(REXCVAR_GET(vulkan_readback_memexport)))
           : (IsReadbackMemexportEnabled(REXCVAR_GET(vulkan_readback_memexport)) && !memexport_ranges_.empty())) {
-    uint32_t memexport_total_size = 0;
+    uint64_t memexport_total_size = 0;
     for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
       memexport_total_size += memexport_range.size_bytes;
     }
-    if (memexport_total_size) {
+    if (memexport_total_size > UINT32_MAX) {
+      REXGPU_ERROR("Vulkan memexport readback size exceeds the staging offset range");
+    } else if (memexport_total_size) {
       if (REXCVAR_GET(readback_memexport_fast)) {
-        IssueDraw_MemexportReadbackFastPath(memexport_total_size);
+        IssueDraw_MemexportReadbackFastPath(uint32_t(memexport_total_size));
       } else {
-        IssueDraw_MemexportReadbackFullPath(memexport_total_size);
+        IssueDraw_MemexportReadbackFullPath(uint32_t(memexport_total_size));
       }
     }
   }
@@ -5650,196 +5655,205 @@ bool VulkanCommandProcessor::IssueDraw_MemexportReadbackFullPath(uint32_t total_
     return true;
   }
 
+  constexpr uint32_t kMaxCachedReadbackSize = 16 * 1024 * 1024;
+  const bool cache_readback = total_size <= kMaxCachedReadbackSize;
+
   const ui::vulkan::VulkanDevice* const vulkan_device = GetVulkanDevice();
   const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
   const VkDevice device = vulkan_device->device();
 
-  VkBuffer readback_buffer = VK_NULL_HANDLE;
-  VkDeviceMemory readback_memory = VK_NULL_HANDLE;
-  uint32_t readback_memory_type = UINT32_MAX;
-  VkDeviceSize readback_memory_size = 0;
-  if (!ui::vulkan::util::CreateDedicatedAllocationBuffer(
-          vulkan_device, total_size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-          ui::vulkan::util::MemoryPurpose::kReadback, readback_buffer, readback_memory,
-          &readback_memory_type, &readback_memory_size)) {
-    REXGPU_ERROR("Failed to create a Vulkan memexport readback buffer");
-    return true;
+#if defined(_WIN32) || defined(__linux__)
+  // Reuse the CPU-side before-images and VMA run lists between draws. CAF
+  // skin generation can issue many memexports; rebuilding these buffers for
+  // every draw adds allocator work before the synchronous readback completes.
+  static thread_local std::vector<ufc_memexport::Snapshot> cached_guest_before;
+  std::vector<ufc_memexport::Snapshot> temporary_guest_before;
+  auto& guest_before = cache_readback ? cached_guest_before : temporary_guest_before;
+  if (cache_readback) {
+    if (guest_before.size() < memexport_ranges_.size())
+      guest_before.resize(memexport_ranges_.size());
+    for (size_t i = 0; i < memexport_ranges_.size(); ++i) {
+      const auto& range = memexport_ranges_[i];
+      const uint64_t base = uint64_t(range.base_address_dwords) << 2;
+      const size_t length = base < SharedMemory::kBufferSize
+                                ? std::min<size_t>(range.size_bytes,
+                                                   SharedMemory::kBufferSize - size_t(base))
+                                : 0;
+      ufc_memexport::Prepare(
+          guest_before[i], length ? memory_->TranslatePhysical(uint32_t(base)) : nullptr,
+          length);
+    }
+  } else {
+    guest_before.reserve(memexport_ranges_.size());
+    for (const auto& range : memexport_ranges_) {
+      const uint64_t base = uint64_t(range.base_address_dwords) << 2;
+      const size_t length = base < SharedMemory::kBufferSize
+                                ? std::min<size_t>(range.size_bytes,
+                                                   SharedMemory::kBufferSize - size_t(base))
+                                : 0;
+      guest_before.push_back(ufc_memexport::Prepare(
+          length ? memory_->TranslatePhysical(uint32_t(base)) : nullptr, length));
+    }
   }
+  {
+    auto lock = rex::thread::global_critical_region::AcquireDirect();
+    for (size_t i = 0; i < memexport_ranges_.size(); ++i)
+      ufc_memexport::CaptureInto(guest_before[i], ufc_memexport::QueryNativeRegion);
+  }
+#endif
+
+  // The synchronous path needs only one slot, independent of guest address.
+  // Large requests still work with a temporary buffer rather than growing the cache.
+  constexpr uint64_t kSyncReadbackKey = 0;
+  ReadbackBuffer temporary_readback{};
+  ReadbackBuffer& readback =
+      cache_readback ? memexport_readback_buffers_[kSyncReadbackKey] : temporary_readback;
+  readback.last_used_frame = frame_current_;
+
+  auto release_slot = [&](uint64_t last_submission) {
+    if (!readback.mapped_data[0]) {
+      return;
+    }
+    dfn.vkUnmapMemory(device, readback.memories[0]);
+    if (last_submission > submission_completed_) {
+      destroy_buffers_.emplace_back(last_submission, readback.buffers[0]);
+      destroy_memory_.emplace_back(last_submission, readback.memories[0]);
+    } else {
+      dfn.vkDestroyBuffer(device, readback.buffers[0], nullptr);
+      dfn.vkFreeMemory(device, readback.memories[0], nullptr);
+    }
+    readback.buffers[0] = VK_NULL_HANDLE;
+    readback.memories[0] = VK_NULL_HANDLE;
+    readback.mapped_data[0] = nullptr;
+    readback.sizes[0] = 0;
+  };
+
+  if (!readback.mapped_data[0] || readback.sizes[0] < total_size) {
+    // A cached slot survives only if its previous readback completed.
+    release_slot(0);
+    auto allocate_slot = [&](uint32_t size) {
+      VkBuffer buffer = VK_NULL_HANDLE;
+      VkDeviceMemory memory = VK_NULL_HANDLE;
+      if (!ui::vulkan::util::CreateDedicatedAllocationBuffer(
+              vulkan_device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+              ui::vulkan::util::MemoryPurpose::kReadback, buffer, memory)) {
+        return false;
+      }
+      void* mapping = nullptr;
+      if (dfn.vkMapMemory(device, memory, 0, VK_WHOLE_SIZE, 0, &mapping) != VK_SUCCESS) {
+        dfn.vkDestroyBuffer(device, buffer, nullptr);
+        dfn.vkFreeMemory(device, memory, nullptr);
+        return false;
+      }
+      readback.buffers[0] = buffer;
+      readback.memories[0] = memory;
+      readback.mapped_data[0] = mapping;
+      readback.sizes[0] = size;
+      return true;
+    };
+    const uint32_t capacity = cache_readback ? std::bit_ceil(total_size) : total_size;
+    if (!allocate_slot(capacity) && (capacity == total_size || !allocate_slot(total_size))) {
+      REXGPU_ERROR("Failed to allocate or map a Vulkan memexport readback buffer");
+      return true;
+    }
+  }
+
+  const VkBuffer readback_buffer = readback.buffers[0];
 
   shared_memory_->Use(VulkanSharedMemory::Usage::kRead);
   SubmitBarriers(true);
 
   uint32_t readback_offset = 0;
   for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
-    VkBufferCopy readback_region = {};
-    readback_region.srcOffset = memexport_range.base_address_dwords << 2;
-    readback_region.dstOffset = readback_offset;
-    readback_region.size = memexport_range.size_bytes;
-    deferred_command_buffer_.CmdVkCopyBuffer(shared_memory_->buffer(), readback_buffer, 1,
-                                             &readback_region);
+    const uint64_t base = uint64_t(memexport_range.base_address_dwords) << 2;
+    const size_t length = base < SharedMemory::kBufferSize
+                              ? std::min<size_t>(memexport_range.size_bytes,
+                                                 SharedMemory::kBufferSize - size_t(base))
+                              : 0;
+    if (length) {
+      VkBufferCopy readback_region = {};
+      readback_region.srcOffset = base;
+      readback_region.dstOffset = readback_offset;
+      readback_region.size = length;
+      deferred_command_buffer_.CmdVkCopyBuffer(shared_memory_->buffer(), readback_buffer, 1,
+                                               &readback_region);
+    }
     readback_offset += memexport_range.size_bytes;
   }
   PushBufferMemoryBarrier(readback_buffer, 0, total_size, VK_PIPELINE_STAGE_TRANSFER_BIT,
                           VK_PIPELINE_STAGE_HOST_BIT, VK_ACCESS_TRANSFER_WRITE_BIT,
                           VK_ACCESS_HOST_READ_BIT);
 
-  if (!([&]() {ufc_wait_diag::Context reason("vulkan_cp:4296");ufc_wait_diag::Scope elapsed(ufc_wait_diag::AwaitAll);return AwaitAllQueueOperationsCompletion();}())) {
+  const uint64_t readback_submission = GetCurrentSubmission();
+  const bool waited = [&]() {
+    ufc_wait_diag::Context reason("vulkan_cp:4296");
+    ufc_wait_diag::Scope elapsed(ufc_wait_diag::AwaitAll);
+    return AwaitAllQueueOperationsCompletion();
+  }();
+  if (!waited || submission_completed_ < readback_submission) {
     REXGPU_ERROR("Failed to await completion of Vulkan memexport readback");
-    dfn.vkDestroyBuffer(device, readback_buffer, nullptr);
-    dfn.vkFreeMemory(device, readback_memory, nullptr);
+    release_slot(readback_submission);
     return true;
   }
 
-  void* readback_mapping = nullptr;
-  if (dfn.vkMapMemory(device, readback_memory, 0, VK_WHOLE_SIZE, 0, &readback_mapping) !=
-      VK_SUCCESS) {
-    REXGPU_ERROR("Failed to map a Vulkan memexport readback buffer");
-    dfn.vkDestroyBuffer(device, readback_buffer, nullptr);
-    dfn.vkFreeMemory(device, readback_memory, nullptr);
+  VkMappedMemoryRange mapped_range = {};
+  mapped_range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
+  mapped_range.memory = readback.memories[0];
+  const VkDeviceSize aligned_size =
+      rex::round_up(VkDeviceSize(total_size), vulkan_device->properties().nonCoherentAtomSize);
+  mapped_range.size = aligned_size <= readback.sizes[0] ? aligned_size : VK_WHOLE_SIZE;
+  if (dfn.vkInvalidateMappedMemoryRanges(device, 1, &mapped_range) != VK_SUCCESS) {
+    REXGPU_ERROR("Failed to invalidate Vulkan memexport readback memory");
+    if (!cache_readback) {
+      release_slot(0);
+    }
     return true;
   }
 
-  if (!(vulkan_device->memory_types().host_coherent & (uint32_t(1) << readback_memory_type))) {
-    VkMappedMemoryRange readback_memory_range = {};
-    readback_memory_range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-    readback_memory_range.memory = readback_memory;
-    readback_memory_range.offset = 0;
-    readback_memory_range.size = std::min(
-        rex::round_up(VkDeviceSize(total_size), vulkan_device->properties().nonCoherentAtomSize),
-        readback_memory_size);
-    dfn.vkInvalidateMappedMemoryRanges(device, 1, &readback_memory_range);
+  const uint8_t* readback_bytes = reinterpret_cast<const uint8_t*>(readback.mapped_data[0]);
+#if defined(_WIN32) || defined(__linux__)
+  {
+    auto lock = rex::thread::global_critical_region::AcquireDirect();
+    size_t unavailable = 0;
+    bool restore_failed = false;
+    for (size_t i = 0; i < memexport_ranges_.size(); ++i) {
+      const auto& range = memexport_ranges_[i];
+      const auto write = ufc_memexport::Apply(
+          guest_before[i], readback_bytes, ufc_memexport::QueryNativeRegion,
+          [](auto* address, size_t size, auto copy, bool& failed) {
+            return ufc_memexport::WithNativeWriteAccess(address, size, copy, failed);
+          });
+      unavailable += range.size_bytes - guest_before[i].length + write.unavailable;
+      restore_failed |= write.protection_restore_failed;
+      readback_bytes += range.size_bytes;
+    }
+    if (unavailable) {
+      static uint64_t guarded_readbacks = 0;
+      const uint64_t count = ++guarded_readbacks;
+      if (!(count & (count - 1))) {
+        REXGPU_WARN("Vulkan memexport: skipped {} inaccessible bytes in readback {}",
+                    unavailable, count);
+      }
+    }
+    if (restore_failed) REXGPU_ERROR("Vulkan memexport: failed to restore page protection");
   }
-
-  const uint8_t* readback_bytes = reinterpret_cast<const uint8_t*>(readback_mapping);
+#else
   for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
     std::memcpy(memory_->TranslatePhysical(memexport_range.base_address_dwords << 2),
                 readback_bytes, memexport_range.size_bytes);
     readback_bytes += memexport_range.size_bytes;
   }
-  dfn.vkUnmapMemory(device, readback_memory);
-  dfn.vkDestroyBuffer(device, readback_buffer, nullptr);
-  dfn.vkFreeMemory(device, readback_memory, nullptr);
+#endif
+  if (!cache_readback) {
+    release_slot(0);
+  }
   return true;
 }
 
 bool VulkanCommandProcessor::IssueDraw_MemexportReadbackFastPath(uint32_t total_size) {
-  if (!total_size || memexport_ranges_.empty()) {
-    return true;
-  }
-
-  const ui::vulkan::VulkanDevice* const vulkan_device = GetVulkanDevice();
-  const ui::vulkan::VulkanDevice::Functions& dfn = vulkan_device->functions();
-  const VkDevice device = vulkan_device->device();
-
-  const uint64_t readback_key =
-      MakeMemexportReadbackKey(memexport_ranges_.front().base_address_dwords, total_size);
-  ReadbackBuffer& readback = memexport_readback_buffers_[readback_key];
-  readback.last_used_frame = frame_current_;
-
-  auto ensure_readback_slot = [&](uint32_t index, uint32_t size) -> bool {
-    if (readback.buffers[index] != VK_NULL_HANDLE && readback.memories[index] != VK_NULL_HANDLE &&
-        readback.mapped_data[index] != nullptr && size <= readback.sizes[index]) {
-      return true;
-    }
-
-    VkBuffer new_buffer = VK_NULL_HANDLE;
-    VkDeviceMemory new_memory = VK_NULL_HANDLE;
-    if (!ui::vulkan::util::CreateDedicatedAllocationBuffer(
-            vulkan_device, size, VK_BUFFER_USAGE_TRANSFER_DST_BIT,
-            ui::vulkan::util::MemoryPurpose::kReadback, new_buffer, new_memory)) {
-      return false;
-    }
-
-    void* new_mapping = nullptr;
-    if (dfn.vkMapMemory(device, new_memory, 0, VK_WHOLE_SIZE, 0, &new_mapping) != VK_SUCCESS) {
-      dfn.vkDestroyBuffer(device, new_buffer, nullptr);
-      dfn.vkFreeMemory(device, new_memory, nullptr);
-      return false;
-    }
-
-    if (readback.buffers[index] != VK_NULL_HANDLE || readback.memories[index] != VK_NULL_HANDLE) {
-      if (!([&]() {ufc_wait_diag::Context reason("vulkan_cp:4371");ufc_wait_diag::Scope elapsed(ufc_wait_diag::AwaitAll);return AwaitAllQueueOperationsCompletion();}())) {
-        dfn.vkUnmapMemory(device, new_memory);
-        dfn.vkDestroyBuffer(device, new_buffer, nullptr);
-        dfn.vkFreeMemory(device, new_memory, nullptr);
-        return false;
-      }
-      if (readback.mapped_data[index] != nullptr && readback.memories[index] != VK_NULL_HANDLE) {
-        dfn.vkUnmapMemory(device, readback.memories[index]);
-      }
-      if (readback.buffers[index] != VK_NULL_HANDLE) {
-        dfn.vkDestroyBuffer(device, readback.buffers[index], nullptr);
-      }
-      if (readback.memories[index] != VK_NULL_HANDLE) {
-        dfn.vkFreeMemory(device, readback.memories[index], nullptr);
-      }
-    }
-
-    readback.buffers[index] = new_buffer;
-    readback.memories[index] = new_memory;
-    readback.mapped_data[index] = new_mapping;
-    readback.sizes[index] = size;
-    readback.submission_written[index] = 0;
-    readback.written_size[index] = 0;
-    return true;
-  };
-
-  const uint32_t write_index = readback.current_index;
-  const uint32_t read_index = 1 - write_index;
-  const uint32_t readback_size = AlignReadbackBufferSize(total_size);
-  if (!ensure_readback_slot(write_index, readback_size)) {
-    return IssueDraw_MemexportReadbackFullPath(total_size);
-  }
-
-  shared_memory_->Use(VulkanSharedMemory::Usage::kRead);
-  SubmitBarriers(true);
-
-  uint32_t readback_offset = 0;
-  for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
-    VkBufferCopy readback_region = {};
-    readback_region.srcOffset = memexport_range.base_address_dwords << 2;
-    readback_region.dstOffset = readback_offset;
-    readback_region.size = memexport_range.size_bytes;
-    deferred_command_buffer_.CmdVkCopyBuffer(shared_memory_->buffer(),
-                                             readback.buffers[write_index], 1, &readback_region);
-    readback_offset += memexport_range.size_bytes;
-  }
-  PushBufferMemoryBarrier(readback.buffers[write_index], 0, total_size,
-                          VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_HOST_BIT,
-                          VK_ACCESS_TRANSFER_WRITE_BIT, VK_ACCESS_HOST_READ_BIT);
-  readback.submission_written[write_index] = GetCurrentSubmission();
-  readback.written_size[write_index] = total_size;
-
-  {ufc_wait_diag::Context reason("vulkan_cp:4423");CheckSubmissionFenceAndDeviceLoss(0);}
-  bool previous_slot_ready =
-      readback.buffers[read_index] != VK_NULL_HANDLE &&
-      readback.memories[read_index] != VK_NULL_HANDLE &&
-      readback.mapped_data[read_index] != nullptr && total_size <= readback.sizes[read_index] &&
-      total_size <= readback.written_size[read_index] && readback.submission_written[read_index] &&
-      readback.submission_written[read_index] <= submission_completed_;
-  if (!previous_slot_ready) {
-    IssueDraw_MemexportReadbackFullPath(total_size);
-    readback.current_index = read_index;
-    return true;
-  }
-
-  VkMappedMemoryRange readback_memory_range = {};
-  readback_memory_range.sType = VK_STRUCTURE_TYPE_MAPPED_MEMORY_RANGE;
-  readback_memory_range.memory = readback.memories[read_index];
-  readback_memory_range.offset = 0;
-  readback_memory_range.size = VK_WHOLE_SIZE;
-  dfn.vkInvalidateMappedMemoryRanges(device, 1, &readback_memory_range);
-
-  const uint8_t* readback_bytes =
-      reinterpret_cast<const uint8_t*>(readback.mapped_data[read_index]);
-  for (const draw_util::MemExportRange& memexport_range : memexport_ranges_) {
-    std::memcpy(memory_->TranslatePhysical(memexport_range.base_address_dwords << 2),
-                readback_bytes, memexport_range.size_bytes);
-    readback_bytes += memexport_range.size_bytes;
-  }
-
-  readback.current_index = read_index;
-  return true;
+  // Delayed slot output has no matching guest snapshot from the same draw.
+  // Keep this path on the full readback until per-slot snapshots are validated.
+  return IssueDraw_MemexportReadbackFullPath(total_size);
 }
 
 namespace {

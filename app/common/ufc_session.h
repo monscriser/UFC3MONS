@@ -123,6 +123,7 @@ class Session{
   // P14.9 Mods tab: enabled files in <storage>/mods replace the game's files (read-only redirect).
   args.push_back("--ufc_mods_dir="+U8(Storage(installation.game)/"mods"));
   args.push_back(std::string("--ufc_full_training_rewards=")+(settings.full_training_rewards?"true":"false"));
+  args.push_back(std::string("--ufc_full_technique_rewards=")+(settings.full_technique_rewards?"true":"false"));
   AtomicText(CheatsFile(),CheatsText(settings));args.push_back("--ufc_cheats_file="+U8(CheatsFile()));
   // The preserving synchronous backend is required until async fidelity is validated.
   args.push_back(std::string("--ufc_async_shaders=")+("false"));

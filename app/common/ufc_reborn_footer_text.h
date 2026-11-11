@@ -7,7 +7,17 @@
 namespace ufc_footer {
 struct Slot{uint32_t address;size_t capacity;std::string before,after;};
 inline std::string Utf16(const std::u16string& text){std::string out;for(char16_t c:text){out+=char(c>>8);out+=char(c&255);}return out;}
-inline std::vector<Slot> Slots(int language,bool native_buttons){
+// caf: the created fighters page is in the trigger cycle (ufc_reborn_caf_page), which goes
+// UFC -> PRIDE -> random -> CAF, so " / CAF" follows the random label. English (language 0)
+// only changes this line.
+inline std::vector<Slot> Slots(int language,bool native_buttons,bool caf=false){
+ const char16_t* line_before=u"<&Dir> / <&Lstick> MOVE / SCROLL   <&L2_LT> / <&R2_RT> UFC / PRIDE / RANDOM";
+ const std::u16string caf_label=caf?u" / CAF":u"";
+ if(language==0&&caf){
+  std::vector<Slot> result={{0x83684E60,256,Utf16(line_before),Utf16(line_before+caf_label)}};
+  for(auto& slot:result){slot.before.resize(slot.capacity,0);slot.after.resize(slot.capacity,0);}
+  return result;
+ }
  if(language<=0||language>5)return {};
  static const char16_t* accept[]={u"ACEITAR",u"ACEPTAR",u"VALIDER",u"ACCETTA",u"OK"};
  static const char16_t* back[]={u"VOLTAR",u"VOLVER",u"RETOUR",u"INDIETRO",u"ZURÜCK"};
@@ -19,7 +29,7 @@ inline std::vector<Slot> Slots(int language,bool native_buttons){
  const std::u16string a=std::u16string(u"<&Cross_A>")+accept[i];
  const std::u16string b=std::u16string(u" <&Circle_B>")+back[i];
  std::vector<Slot> result={
-  {0x83684E60,256,Utf16(u"<&Dir> / <&Lstick> MOVE / SCROLL   <&L2_LT> / <&R2_RT> UFC / PRIDE / RANDOM"),Utf16(std::u16string(u"<&Dir> / <&Lstick> ")+movement[i]+u"   <&L2_LT> / <&R2_RT> UFC / PRIDE / "+random[i])},
+  {0x83684E60,256,Utf16(line_before),Utf16(std::u16string(u"<&Dir> / <&Lstick> ")+movement[i]+u"   <&L2_LT> / <&R2_RT> UFC / PRIDE / "+random[i]+caf_label)},
   {0x83684F60,80,Utf16(u"<&Cross_A>ACCEPT  <&Circle_B>BACK  "),native_buttons?std::string{}:Utf16(a+b)},
   {0x83684FB0,80,Utf16(u"<&Cross_A>ACCEPT  "),native_buttons?std::string{}:Utf16(a)},
   {0x83685000,256,Utf16(u"<&Cross_A>ACCEPT  <&Circle_B>BACK  <&L3_LS>ALT ATTIRE  <&R3_RS>SKIP SONG"),Utf16(a+b+u" <&L3_LS>"+attire[i]+u" <&R3_RS>"+skip[i])}

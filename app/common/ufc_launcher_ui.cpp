@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <algorithm>
 #include <array>
+#include <cfloat>
 #include <cmath>
 #include <cstdio>
 #include <mutex>
@@ -54,6 +55,7 @@ fs::path LanguageFile(){return RegistryDirectory()/"config/launcher-language.ini
 // Fonts baked by the app: 0 = 16 px, 1 = 21 px, 2 = 28 px (fallback: scaled 16 px).
 void PushSize(int index){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(index<fonts.Size)ImGui::PushFont(fonts[index],fonts[index]->LegacySize);else ImGui::PushFont(fonts[0],index==1?21.f:index==2?28.f:16.f);}
 ImU32 Col(float r,float g,float b,float a=1){return ImGui::GetColorU32(ImVec4(r,g,b,a));}
+constexpr const char* kDisplayVersion="BETA 1.7";
 const ImVec4 kRed(.84f,.11f,.16f,1),kRedHover(.93f,.17f,.22f,1),kRedActive(.70f,.08f,.12f,1),kGreen(.20f,.85f,.42f,1),kMuted(.70f,.73f,.78f,1);
 void CheckMark(ImDrawList* draw,ImVec2 c,float r,ImU32 color,float thickness){ImVec2 pts[3]={ImVec2(c.x-r*.45f,c.y+r*.02f),ImVec2(c.x-r*.12f,c.y+r*.36f),ImVec2(c.x+r*.48f,c.y-r*.34f)};draw->AddPolyline(pts,3,color,ImDrawFlags_None,thickness);}
 void FilledCheck(ImDrawList* draw,ImVec2 c,float r){draw->AddCircleFilled(c,r,Col(.13f,.72f,.33f),32);CheckMark(draw,c,r,Col(.04f,.08f,.05f),r*.24f);}
@@ -109,7 +111,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
   if(DlcBusy()){auto total=dlc_progress_.total.load();ImGui::ProgressBar(total?float(double(dlc_progress_.done.load())/double(total)):0.f,ImVec2(-1,0));ImGui::Text(L("Pacote %d de %d","Package %d of %d","Paquete %d de %d"),dlc_progress_.package.load(),dlc_progress_.packages.load());return;}
   ImGui::BeginDisabled(Busy()||!Ready(installation_));
   const float width=std::min(260.f,ImGui::GetContentRegionAvail().x);
-  if(!dlc_missing_.empty()&&StyledButton(L("Instalar DLC (pasta)...","Install DLC (folder)...","Instalar DLC (carpeta)..."),ImVec2(width,30),true))SDL_ShowOpenFolderDialog(Selected,new std::shared_ptr<FolderResult>(dlc_picker_),nullptr,nullptr,false);
+  if(!dlc_missing_.empty()&&StyledButton(L("Instalar DLC (pasta)...","Install DLC (folder)...","Instalar DLC (carpeta)..."),ImVec2(width,30),false))SDL_ShowOpenFolderDialog(Selected,new std::shared_ptr<FolderResult>(dlc_picker_),nullptr,nullptr,false);
   if(!dlcs_.empty()&&StyledButton(L("Remover DLCs","Remove DLCs","Quitar DLC"),ImVec2(width,30),false))ImGui::OpenPopup("###remove-dlc");
   ImGui::EndDisabled();
   if(ImGui::BeginPopupModal(L("Remover DLCs###remove-dlc","Remove DLCs###remove-dlc","Quitar DLC###remove-dlc"),nullptr,ImGuiWindowFlags_AlwaysAutoResize)){
@@ -218,7 +220,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
  // Header art (from Ian's layout): background anchored right, logo at left, subtitle and language selector below it.
  float DrawHeader(ImGuiIO& io){
   auto* draw=ImGui::GetWindowDrawList();auto origin=ImGui::GetWindowPos();
-  if(!tried_art_){tried_art_=true;art_=LoadArt(bundle_/"ui/header-bg.png",art_w_,art_h_);logo_=LoadArt(bundle_/"ui/header-logo.png",logo_w_,logo_h_);}
+  LoadHeaderArt();
   const float base_w=art_w_?float(art_w_):1409.f,base_h=art_h_?float(art_h_):260.f;
   const float scale=std::min(io.DisplaySize.x/base_w,std::max(.62f,io.DisplaySize.y*.27f/base_h));
   const float height=std::floor(base_h*scale),width=base_w*scale;
@@ -233,26 +235,32 @@ class Launcher final:public rex::ui::ImGuiDialog{
   return std::max(height,y+ImGui::GetFrameHeight()+42);
  }
  void ReadyCard(const std::vector<std::string>& missing){
-  BeginCard("ReadyCard",ImVec2(0,62),ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
+  // Green banner when ready (new layout); the usual card otherwise.
+  const bool ready_banner=Ready(installation_)&&missing.empty();
+  if(ready_banner){ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.07f,.16f,.09f,1));ImGui::PushStyleColor(ImGuiCol_Border,ImVec4(.20f,.55f,.28f,1));}
+  else{ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.075f,.085f,.10f,1));ImGui::PushStyleColor(ImGuiCol_Border,ImVec4(.18f,.20f,.24f,1));}
+  ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,8);ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(16,12));ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize,1);
+  ImGui::BeginChild("ReadyCard",ImVec2(0,78),ImGuiChildFlags_Borders|ImGuiChildFlags_AlwaysUseWindowPadding,ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
   auto* draw=ImGui::GetWindowDrawList();ImVec2 p=ImGui::GetCursorScreenPos();float right=ImGui::GetWindowPos().x+ImGui::GetWindowWidth();
   const bool ready=Ready(installation_);
-  if(ready)FilledCheck(draw,ImVec2(p.x+16,p.y+20),15);else Warning(draw,ImVec2(p.x+16,p.y+20),15);
-  ImGui::SetCursorScreenPos(ImVec2(p.x+46,p.y-2));
-  ImGui::BeginGroup();CardTitle(ready?L("Tudo configurado","All set","Todo configurado"):L("Vamos preparar sua primeira luta","Let's prepare your first fight","Preparemos tu primera pelea"),nullptr);
-  ImGui::TextUnformatted(ready?L("Sua instalação foi reconhecida. É só jogar.","Your installation was recognized. Just play.","Tu instalación fue reconocida. Solo juega."):L("Selecione Reborn, Original ou ISO abaixo.","Select Reborn, Original or ISO below.","Selecciona Reborn, Original o ISO abajo."));ImGui::EndGroup();
+  if(ready){FilledCheck(draw,ImVec2(p.x+22,p.y+26),17);}else Warning(draw,ImVec2(p.x+22,p.y+26),17);
+  draw->AddLine(ImVec2(p.x+58,p.y+4),ImVec2(p.x+58,p.y+48),Col(.30f,.45f,.33f),1.f);
+  ImGui::SetCursorScreenPos(ImVec2(p.x+74,p.y));
+  ImGui::BeginGroup();PushSize(2);ImGui::TextUnformatted(ready?L("Pronto para jogar","Ready to play","Listo para jugar"):L("Vamos preparar sua primeira luta","Let's prepare your first fight","Preparemos tu primera pelea"));ImGui::PopFont();
+  Muted(ready?L("Jogo encontrado e configurado.","Game found and set up.","Juego encontrado y configurado."):L("Selecione Reborn, Original ou ISO abaixo.","Select Reborn, Original or ISO below.","Selecciona Reborn, Original o ISO abajo."));ImGui::EndGroup();
   // Only a problem is shown on the right; "ready" is already said by the title.
   if(ready&&!missing.empty()){
    const char* text=L("Faltam arquivos","Missing files","Faltan archivos");
    PushSize(1);float tw=ImGui::CalcTextSize(text).x;float x=right-tw-26;if(x>p.x+380){Warning(draw,ImVec2(x-26,p.y+20),15);draw->AddText(ImVec2(x,p.y+8),ImGui::GetColorU32(ImVec4(1,.55f,.45f,1)),text);}ImGui::PopFont();
   }
-  EndCard();
+  ImGui::EndChild();ImGui::PopStyleVar(3);ImGui::PopStyleColor(2);
  }
  void SourceCard(float height){
   BeginCard("SourceCard",ImVec2(0,height),ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
   CardTitle(L("Fonte do jogo","Game source","Fuente del juego"),L("Selecione a origem dos arquivos do jogo.","Select where the game files come from.","Selecciona el origen de los archivos del juego."));
   ImGui::Spacing();
   const char* names[]={"Reborn","Original","ISO"};
-  const char* subs[]={L("(pasta do jogo)","(game folder)","(carpeta del juego)"),L("(XEX ou pasta)","(XEX or folder)","(XEX o carpeta)"),L("(imagem do disco)","(disc image)","(imagen del disco)")};
+  const char* subs[]={L("(Recomendado)","(Recommended)","(Recomendado)"),L("(XEX ou pasta)","(XEX or folder)","(XEX o carpeta)"),L("(imagem do disco)","(disc image)","(imagen del disco)")};
   const char* descriptions[]={L("Pasta do Reborn.","Reborn folder.","Carpeta de Reborn."),L("Pasta ou default.xex.","Folder or default.xex.","Carpeta o default.xex."),L("Sem extrair.","No extraction.","Sin extraer.")};
   const float gap=10,w=std::floor((ImGui::GetContentRegionAvail().x-2*gap)/3),h=std::clamp(ImGui::GetContentRegionAvail().y-2,74.f,112.f);
   ImGui::BeginDisabled(Busy());
@@ -274,7 +282,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
  }
  void PrepareCard(){
   BeginCard("PrepareCard",ImVec2(0,0));
-  CardTitle(L("Preparar e jogar","Prepare and play","Preparar y jugar"),L("A ISO é lida diretamente, sem extrair. As preferências ficam na pasta fixa do usuário; saves e cache ficam junto do jogo.","The ISO is read directly, without extraction. Preferences use your fixed user folder; saves and cache stay with the game.","La ISO se lee directamente, sin extraer. Las preferencias quedan en la carpeta fija del usuario; partidas y caché quedan junto al juego."));
+  CardTitle(L("Diretório do jogo","Game folder","Carpeta del juego"),source_index_==2?L("Selecione a imagem ISO do UFC Undisputed 3 (lida diretamente, sem extrair).","Select the UFC Undisputed 3 ISO image (read directly, nothing extracted).","Selecciona la imagen ISO de UFC Undisputed 3 (se lee directamente, sin extraer)."):L("Selecione a pasta onde está o UFC Undisputed 3.","Select the folder where UFC Undisputed 3 is.","Selecciona la carpeta donde está UFC Undisputed 3."));
   if(Preparing()){auto total=total_bytes_.load();ImGui::ProgressBar(total?float(double(prepared_bytes_.load())/double(total)):0.f);ImGui::TextUnformatted(L("Lendo a ISO...","Reading the ISO...","Leyendo la ISO..."));}
   ImGui::BeginDisabled(Busy());
   const float locate=source_index_==1?300.f:150.f;
@@ -284,9 +292,12 @@ class Launcher final:public rex::ui::ImGuiDialog{
   if(StyledButton(source_index_==1?L("Localizar XEX...","Locate XEX...","Buscar XEX..."):L("Localizar...","Locate...","Buscar..."),ImVec2(140,0),false)){if(source_index_==2){static const SDL_DialogFileFilter filter[]={ {"ISO Xbox 360","iso"} };SDL_ShowOpenFileDialog(Selected,new std::shared_ptr<FolderResult>(picker_),nullptr,filter,1,nullptr,false);}else if(source_index_==1){static const SDL_DialogFileFilter filter[]={ {"Xbox 360 XEX","xex"} };SDL_ShowOpenFileDialog(Selected,new std::shared_ptr<FolderResult>(picker_),nullptr,filter,1,nullptr,false);}else SDL_ShowOpenFolderDialog(Selected,new std::shared_ptr<FolderResult>(picker_),nullptr,nullptr,false);}
   if(source_index_==1){ImGui::SameLine();if(StyledButton(L("Localizar pasta...","Locate folder...","Buscar carpeta..."),ImVec2(150,0),false))SDL_ShowOpenFolderDialog(Selected,new std::shared_ptr<FolderResult>(picker_),nullptr,nullptr,false);}
   ImGui::EndDisabled();
-  // P14.6: preparing is automatic when the source is located. P14.8: in its old place, the optional
-  // shader pre-compile (nothing happens unless the player clicks it).
-  ImGui::Spacing();
+  EndCard();
+ }
+ // Settings tab: the optional shader pre-compile (moved out of Home in the new layout).
+ void PrecompileCard(){
+  BeginCard("PrecompileCard",ImVec2(0,0));
+  CardTitle(L("Shaders","Shaders","Shaders"),nullptr);
   ImGui::BeginDisabled(Busy()||!prepared_||!Ready(installation_)||!Missing().empty());
   if(StyledButton(L("Pré-compilar shaders","Pre-compile shaders","Precompilar shaders"),ImVec2(220,34),false))Guard([&]{StartPrecompile();});
   ImGui::EndDisabled();ImGui::SameLine();
@@ -304,8 +315,9 @@ class Launcher final:public rex::ui::ImGuiDialog{
  }
  void Home(){
   auto missing=Missing();
+  Hero(ImGui::GetContentRegionAvail().x);
   ReadyCard(missing);
-  const float row=std::clamp(ImGui::GetContentRegionAvail().y-220,150.f,230.f);  // P14.8: room for the pre-compile row
+  const float row=std::clamp(ImGui::GetContentRegionAvail().y-150,150.f,200.f);
   if(ImGui::BeginTable("SourceAndDlc",2,ImGuiTableFlags_SizingStretchProp)){
    ImGui::TableSetupColumn("source",ImGuiTableColumnFlags_WidthStretch,.60f);
    ImGui::TableSetupColumn("dlc",ImGuiTableColumnFlags_WidthStretch,.40f);
@@ -364,10 +376,9 @@ class Launcher final:public rex::ui::ImGuiDialog{
   BeginCard("CheatsCard",ImVec2(0,0));
   CardTitle(L("Carreira","Career","Carrera"),nullptr);
   ImGui::Checkbox(L("Recompensa completa no treino automático","Full Training Rewards (Auto Mode)","Recompensa completa en el entrenamiento automático"),&settings_.full_training_rewards);
-  Muted(L("Ligado: ao escolher AUTO numa sessão de treino da Carreira, o lutador recebe a mesma recompensa da nota máxima do treino manual (4 estrelas). Desligado: o jogo original.","On: choosing AUTO in a Career training session gives the fighter the same reward as the best Manual Training grade (4 stars). Off: original game.","Activado: al elegir AUTO en una sesión de entrenamiento de la Carrera, el luchador recibe la misma recompensa que la nota máxima del entrenamiento manual (4 estrellas). Desactivado: el juego original."));
-  ImGui::Spacing();
   ImGui::Checkbox(L("Recompensa máxima ao aprender/aprimorar técnica (Auto)","Maximum reward for learning/improving techniques (Auto)","Recompensa máxima al aprender/mejorar técnicas (Auto)"),&settings_.full_technique_rewards);
   Muted(L("Ao escolher AUTO para aprender ou aperfeiçoar uma técnica, concede 1000 pontos e a recompensa máxima da sessão. Desligado: valores originais do jogo.","Choosing AUTO to learn or improve a technique grants 1000 points and the maximum session reward. Off: original game values.","Al elegir AUTO para aprender o mejorar una técnica, otorga 1000 puntos y la recompensa máxima de la sesión. Desactivado: valores originales del juego."));
+  Muted(L("Ligado: ao escolher AUTO numa sessão de treino da Carreira, o lutador recebe a mesma recompensa da nota máxima do treino manual (4 estrelas). Desligado: o jogo original.","On: choosing AUTO in a Career training session gives the fighter the same reward as the best Manual Training grade (4 stars). Off: original game.","Activado: al elegir AUTO en una sesión de entrenamiento de la Carrera, el luchador recibe la misma recompensa que la nota máxima del entrenamiento manual (4 estrellas). Desactivado: el juego original."));
   ImGui::Spacing();
   ImGui::Checkbox(L("Dinheiro em dobro (Creds ganhos nas lutas)","Double money (Creds earned from fights)","Dinero doble (Creds ganados en las peleas)"),&settings_.double_creds);
   Muted(L("Ligado: os Creds ganhos em cada luta da Carreira contam duas vezes (respeitando o limite máximo do jogo). Desligado: o jogo original.","On: Creds earned in each Career fight count twice (within the game's maximum). Off: original game.","Activado: los Creds ganados en cada pelea de la Carrera cuentan dos veces (respetando el límite máximo del juego). Desactivado: el juego original."));
@@ -382,25 +393,143 @@ class Launcher final:public rex::ui::ImGuiDialog{
   if(StyledButton(L("Abrir pasta de saves","Open saves folder","Abrir carpeta de partidas"),ImVec2(0,34),false))Guard([&]{OpenFolder(Storage(installation_.game)/"user");});ImGui::SameLine();
   if(StyledButton(L("Criar cópia dos saves","Back up saves","Copiar partidas"),ImVec2(0,34),false))Guard([&]{auto root=Storage(installation_.game),dest=root/"backups"/("saves-"+Stamp());if(!fs::is_directory(root/"user"))throw std::runtime_error(L("Esta instalação ainda não tem saves.","This installation has no saves yet.","Esta instalación aún no tiene partidas."));fs::create_directories(dest.parent_path());fs::copy(root/"user",dest,fs::copy_options::recursive);status_=std::string(L("Cópia criada em ","Backup created in ","Copia creada en "))+U8(dest);});
   ImGui::SameLine();if(StyledButton(L("Limpar shaders","Clear shaders","Borrar shaders"),ImVec2(0,34),false))Guard([&]{const auto removed=ClearShaderCachePermanently(installation_.game);status_=removed?L("Cache de shaders apagado definitivamente.","Shader cache permanently deleted.","Caché de shaders borrada definitivamente."):L("Nenhum cache de shaders encontrado.","No shader cache found.","No se encontró caché de shaders.");});
-  if(StyledButton(L("Abrir todos os registros","Open all logs","Abrir todos los registros"),ImVec2(0,34),false))Guard([&]{OpenFolder(Storage(installation_.game)/"logs");});ImGui::SameLine();if(StyledButton(L("Abrir cache","Open cache","Abrir caché"),ImVec2(0,34),false))Guard([&]{OpenFolder(Storage(installation_.game)/"cache");});ImGui::EndDisabled();
-  ImGui::Spacing();ImGui::Separator();
+  if(StyledButton(L("Abrir cache","Open cache","Abrir caché"),ImVec2(0,34),false))Guard([&]{OpenFolder(Storage(installation_.game)/"cache");});ImGui::EndDisabled();
+ }
+ void Registro(){
+  BeginCard("LogsCard",ImVec2(0,0));
+  CardTitle(L("Registro","Logs","Registros"),L("Registros ajudam a investigar problemas. Cada sessão usa uma pasta separada.","Logs help investigate problems. Each session uses a separate folder.","Los registros ayudan a investigar problemas. Cada sesión usa una carpeta separada."));
   ImGui::BeginDisabled(session_.Running());
   ImGui::Checkbox(L("Gravar logs no armazenamento","Save logs to storage","Guardar registros en el disco"),&settings_.write_logs);
-  Muted(L("Desligado por padrão. Ligue quando quiser guardar registros para investigar um problema.","Off by default. Enable to keep logs when investigating a problem.","Desactivado por defecto. Actívalo para guardar registros al investigar un problema."));
   ImGui::EndDisabled();
+  Muted(L("Desligado por padrão. Ligue quando quiser guardar registros para investigar um problema.","Off by default. Enable to keep logs when investigating a problem.","Desactivado por defecto. Actívalo para guardar registros al investigar un problema."));
+  if(!measured_.empty())Muted(measured_.c_str());
+  if(!last_session_.empty())Muted(last_session_.c_str());
+  ImGui::Spacing();
+  ImGui::BeginDisabled(!Ready(installation_));
+  if(StyledButton(L("Abrir todos os registros","Open all logs","Abrir todos los registros"),ImVec2(0,34),false))Guard([&]{OpenFolder(Storage(installation_.game)/"logs");});
+  ImGui::EndDisabled();
+  EndCard();
+ }
+ // Optional fixes the player can turn on or off (Correções tab).
+ void Correcoes(){
+  BeginCard("FixesCard",ImVec2(0,0));
+  CardTitle(L("Correções","Fixes","Correcciones"),L("Ajustes opcionais do jogo. Valem na próxima vez que o jogo abrir.","Optional game fixes. They apply the next time the game starts.","Ajustes opcionales del juego. Se aplican la próxima vez que se abra el juego."));
+  ImGui::BeginDisabled(session_.Running());
+  ImGui::Checkbox(L("Brilho da pele igual em todas as câmeras","Same skin lighting on every camera","Mismo brillo de piel en todas las cámaras"),&settings_.steady_skin_light);
+  ImGui::EndDisabled();
+  Muted(L("No chão e no clinch o jogo deixa a pele mais escura e quente. Ligado, ela fica com a mesma luz da luta em pé. Desligado por padrão.","On the ground and in the clinch the game makes the skin darker and warmer. When on, it keeps the stand-up lighting. Off by default.","En el suelo y en el clinch el juego oscurece la piel. Activado, mantiene la luz de la pelea de pie. Desactivado por defecto."));
+  EndCard();
+ }
+ // What changed in this version (Novidades tab).
+ void Novidades(){
+  BeginCard("NewsCard",ImVec2(0,0));
+  CardTitle((std::string(L("Novidades da ","What's new in ","Novedades de "))+kDisplayVersion).c_str(),nullptr);
+  ImGui::Spacing();
+  struct Item{const char* pt;const char* en;const char* es;};
+  static const Item items[]={
+   {"Lutador criado aparece na seleção em cerca de 1,5 s (antes 4,4 s), sem queda de FPS.","Created fighters show up on fighter select in about 1.5 s (was 4.4 s), with no FPS drop.","Los luchadores creados aparecen en la selección en cerca de 1,5 s (antes 4,4 s), sin caída de FPS."},
+   {"As texturas do lutador criado ficam guardadas na pasta cache; da segunda vez ele carrega mais rápido.","Created fighter textures are kept in the cache folder; the second time they load faster.","Las texturas del luchador creado se guardan en la carpeta cache; la segunda vez cargan más rápido."},
+   {"O preview 3D do lutador criado não congela mais quando você passa rápido pela lista.","The created fighter 3D preview no longer freezes when you scroll quickly through the list.","La vista 3D del luchador creado ya no se congela al pasar rápido por la lista."},
+   {"Todas as cenas que o jogo baixava para 30 FPS, incluindo a entrada do lutador, agora rodam a 60 FPS na velocidade original.","Every scene the game dropped to 30 FPS, walkouts included, now runs at 60 FPS at its original speed.","Todas las escenas que el juego bajaba a 30 FPS, incluida la entrada del luchador, ahora van a 60 FPS a su velocidad original."},
+   {"A apresentação do locutor não fica mais presa esperando Start.","The announcer introduction no longer gets stuck waiting for Start.","La presentación del locutor ya no se queda esperando Start."},
+   {"Reborn: a aba CAF volta à seleção de lutador, só com os lutadores criados. Gatilhos: UFC, PRIDE, Aleatório, CAF.","Reborn: the CAF tab is back on fighter select, with only created fighters. Triggers: UFC, PRIDE, Random, CAF.","Reborn: la pestaña CAF vuelve a la selección de luchador, solo con los luchadores creados. Gatillos: UFC, PRIDE, Aleatorio, CAF."},
+   {"Reborn: correção para a capa da revista da Carreira que às vezes saía corrompida.","Reborn: fix for the Career magazine cover that sometimes came out corrupted.","Reborn: corrección para la portada de la revista de la Carrera que a veces salía corrupta."},
+   {"PRIDE: corrigido o fechamento do jogo ao carregar Liddell x Quarry.","PRIDE: fixed the crash when loading Liddell vs Quarry.","PRIDE: corregido el cierre del juego al cargar Liddell vs Quarry."},
+   {"As respostas das perguntas do primeiro início agora ficam salvas.","First-start answers are now saved.","Las respuestas del primer inicio ahora se guardan."},
+   {"Nova aba Correções no launcher, com o brilho da pele igual em todas as câmeras (opcional).","New Fixes tab in the launcher, with same skin lighting on every camera (optional).","Nueva pestaña Correcciones en el launcher, con el mismo brillo de piel en todas las cámaras (opcional)."},
+   {"Cheat novo: recompensa máxima ao aprender ou aperfeiçoar técnicas no modo Auto.","New cheat: maximum reward when learning or improving techniques in Auto mode.","Truco nuevo: recompensa máxima al aprender o mejorar técnicas en modo Auto."},
+   {"Launcher com visual novo. Logs e cheats vêm desligados.","New launcher look. Logs and cheats start off.","Launcher con aspecto nuevo. Registros y trucos vienen desactivados."},
+  };
+
+
+  for(auto& item:items){
+   ImVec2 p=ImGui::GetCursorScreenPos();ImGui::GetWindowDrawList()->AddCircleFilled(ImVec2(p.x+6,p.y+ImGui::GetFontSize()*.55f),3.5f,ImGui::GetColorU32(kRed),12);
+   ImGui::SetCursorScreenPos(ImVec2(p.x+18,p.y));ImGui::PushTextWrapPos(0);ImGui::TextWrapped("%s",L(item.pt,item.en,item.es));ImGui::PopTextWrapPos();ImGui::Spacing();
+  }
+  EndCard();
+ }
+ // Small line icons for the sidebar (drawn, no image files): home, settings, mods, cheats,
+ // logs, saves, news.
+ static void NavIcon(ImDrawList* d,int tab,ImVec2 c,ImU32 col){
+  const float t=1.8f;
+  switch(tab){
+   case 0:{d->AddTriangleFilled(ImVec2(c.x-10,c.y-1),ImVec2(c.x,c.y-10),ImVec2(c.x+10,c.y-1),col);d->AddRectFilled(ImVec2(c.x-7,c.y-1),ImVec2(c.x+7,c.y+9),col);d->AddRectFilled(ImVec2(c.x-2,c.y+3),ImVec2(c.x+2,c.y+9),IM_COL32(16,17,21,255));break;}
+   case 1:{for(int i=0;i<8;++i){float a=i*3.14159f/4;d->AddLine(ImVec2(c.x+std::cos(a)*6,c.y+std::sin(a)*6),ImVec2(c.x+std::cos(a)*10,c.y+std::sin(a)*10),col,3.f);}d->AddCircle(c,6.5f,col,16,t);d->AddCircleFilled(c,2.5f,col,10);break;}
+   case 5:{for(int k=0;k<3;++k){float y=c.y-6+k*5.f;ImVec2 q[4]={ImVec2(c.x-10,y),ImVec2(c.x,y-4),ImVec2(c.x+10,y),ImVec2(c.x,y+4)};d->AddPolyline(q,4,col,ImDrawFlags_Closed,t);}break;}
+   case 4:{d->AddRect(ImVec2(c.x-11,c.y-6),ImVec2(c.x+11,c.y+7),col,6,0,t);d->AddLine(ImVec2(c.x-7,c.y),ImVec2(c.x-3,c.y),col,t);d->AddLine(ImVec2(c.x-5,c.y-2),ImVec2(c.x-5,c.y+2),col,t);d->AddCircleFilled(ImVec2(c.x+4,c.y-1),1.6f,col);d->AddCircleFilled(ImVec2(c.x+7,c.y+2),1.6f,col);break;}
+   case 8:{d->AddLine(ImVec2(c.x-8,c.y+8),ImVec2(c.x+3,c.y-3),col,3.f);d->AddCircle(ImVec2(c.x+5,c.y-5),5.f,col,14,t);d->AddLine(ImVec2(c.x+5,c.y-5),ImVec2(c.x+10,c.y-10),IM_COL32(16,17,21,255),3.f);break;}
+   case 6:{d->AddRect(ImVec2(c.x-8,c.y-10),ImVec2(c.x+8,c.y+10),col,2,0,t);for(int k=0;k<3;++k)d->AddLine(ImVec2(c.x-4,c.y-4+k*4.f),ImVec2(c.x+4,c.y-4+k*4.f),col,t);break;}
+   case 3:{d->AddRect(ImVec2(c.x-10,c.y-8),ImVec2(c.x+10,c.y+8),col,3,0,t);d->AddLine(ImVec2(c.x-10,c.y+2),ImVec2(c.x+10,c.y+2),col,t);d->AddCircleFilled(ImVec2(c.x+6,c.y+5),1.5f,col);break;}
+   default:{d->PathArcTo(ImVec2(c.x,c.y-1),7,3.14159f,6.28318f,12);d->PathLineTo(ImVec2(c.x+7,c.y+5));d->PathLineTo(ImVec2(c.x-7,c.y+5));d->PathStroke(col,ImDrawFlags_Closed,t);d->AddCircleFilled(ImVec2(c.x,c.y+8),2.f,col);break;}
+  }
+ }
+ void LoadHeaderArt(){if(!tried_art_){tried_art_=true;art_=LoadArt(bundle_/"ui/header-bg.png",art_w_,art_h_);logo_=LoadArt(bundle_/"ui/header-logo.png",logo_w_,logo_h_);}}
+ static constexpr float kTopBar=60;
+ // Top bar of the new layout: the UFC3MONS logo across the whole window.
+ void TopBar(ImGuiIO& io){
+  auto* d=ImGui::GetWindowDrawList();auto o=ImGui::GetWindowPos();
+  d->AddRectFilled(o,ImVec2(o.x+io.DisplaySize.x,o.y+kTopBar),IM_COL32(14,15,18,255));
+  d->AddLine(ImVec2(o.x,o.y+kTopBar),ImVec2(o.x+io.DisplaySize.x,o.y+kTopBar),IM_COL32(40,43,50,255));
+  LoadHeaderArt();
+  // The UFC3MONS logo (ui/header-logo.png: "UFC3" white, "MONS" red, "UFC UNDISPUTED 3" under it).
+  if(logo_&&logo_h_>0){const float h=kTopBar-14,w=logo_w_*h/float(logo_h_);d->AddImage(reinterpret_cast<ImTextureID>(logo_.get()),ImVec2(o.x+22,o.y+7),ImVec2(o.x+22+w,o.y+7+h));}
+  else{PushSize(2);d->AddText(ImVec2(o.x+22,o.y+(kTopBar-ImGui::GetFontSize())/2),IM_COL32(240,240,244,255),"UFC3MONS");ImGui::PopFont();}
+ }
+ // Sidebar of the new layout: navigation and the version badge.
+ void Sidebar(ImGuiIO& io,float width){
+  auto* draw=ImGui::GetWindowDrawList();auto o=ImGui::GetWindowPos();
+  draw->AddRectFilled(ImVec2(o.x,o.y+kTopBar),ImVec2(o.x+width,o.y+io.DisplaySize.y),IM_COL32(16,17,21,255));
+  draw->AddLine(ImVec2(o.x+width,o.y+kTopBar),ImVec2(o.x+width,o.y+io.DisplaySize.y),IM_COL32(40,43,50,255));
+  struct Entry{int tab;const char* pt;const char* en;const char* es;};
+  static const Entry entries[]={{0,"Início","Home","Inicio"},{1,"Configurações","Settings","Ajustes"},{5,"Mods","Mods","Mods"},{4,"Cheats","Cheats","Trucos"},{8,"Correções","Fixes","Correcciones"},{6,"Registro","Logs","Registros"},{3,"Saves","Saves","Partidas"},{7,"Novidades","What's new","Novedades"}};
+  float y=o.y+kTopBar+34;
+  for(auto& e:entries){
+   ImGui::PushID(e.tab);ImGui::SetCursorScreenPos(ImVec2(o.x+16,y));
+   const bool active=tab_==e.tab;
+   if(ImGui::InvisibleButton("nav",ImVec2(width-32,46))){if(e.tab==5&&tab_!=5)mods_loaded_=false;tab_=e.tab;}
+   const bool hovered=ImGui::IsItemHovered();
+   ImVec2 a(o.x+16,y),b(o.x+width-16,y+46);
+   if(active){draw->AddRectFilled(a,b,IM_COL32(150,18,28,255),7);draw->AddRect(a,b,IM_COL32(220,40,52,255),7,0,1.5f);}
+   else if(hovered)draw->AddRectFilled(a,b,IM_COL32(32,34,40,255),7);
+   const ImU32 ink=active?IM_COL32(255,255,255,255):IM_COL32(220,222,228,255);
+   NavIcon(draw,e.tab,ImVec2(o.x+44,y+23),ink);
+   PushSize(1);draw->AddText(ImVec2(o.x+70,y+11),ink,L(e.pt,e.en,e.es));ImGui::PopFont();
+   ImGui::PopID();y+=54;
+  }
+  // Version badge (only the version).
+  PushSize(1);const ImVec2 vs=ImGui::CalcTextSize(kDisplayVersion);
+  const ImVec2 va(o.x+(width-vs.x-36)/2,o.y+io.DisplaySize.y-70),vb(va.x+vs.x+36,va.y+40);
+  draw->AddRect(va,vb,IM_COL32(90,94,104,255),7,0,1.2f);draw->AddText(ImVec2(va.x+18,va.y+(40-vs.y)/2),IM_COL32(235,236,240,255),kDisplayVersion);ImGui::PopFont();
+ }
+ // Hero of the new layout (Home): title over the art, language selector below it.
+ float Hero(float width){
+  auto* draw=ImGui::GetWindowDrawList();ImVec2 o=ImGui::GetCursorScreenPos();
+  LoadHeaderArt();
+  const float height=200;
+  draw->AddRectFilled(o,ImVec2(o.x+width,o.y+height),IM_COL32(12,6,8,255),8);
+  if(art_&&art_h_>0){const float aw=art_w_*height/float(art_h_);const float left=std::max(0.f,width-aw);draw->AddImage(reinterpret_cast<ImTextureID>(art_.get()),ImVec2(o.x+left,o.y),ImVec2(o.x+width,o.y+height),ImVec2(left>0?0.f:(aw-width)/aw,0),ImVec2(1,1));}
+  draw->AddRectFilledMultiColor(o,ImVec2(o.x+width*.62f,o.y+height),IM_COL32(10,10,13,245),IM_COL32(10,10,13,0),IM_COL32(10,10,13,0),IM_COL32(10,10,13,245));
+  PushSize(2);const float big=ImGui::GetFontSize()*1.7f;
+  draw->AddText(ImGui::GetFont(),big,ImVec2(o.x+20,o.y+22),IM_COL32(248,248,250,255),L("Sua próxima luta","Your next fight","Tu próxima pelea"));
+  draw->AddText(ImGui::GetFont(),big,ImVec2(o.x+20,o.y+22+big*1.05f),IM_COL32(248,248,250,255),L("começa aqui.","starts here.","empieza aquí."));ImGui::PopFont();
+  ImGui::SetCursorScreenPos(ImVec2(o.x+20,o.y+height-ImGui::GetFrameHeight()-18));LanguageCombo();
+  ImGui::SetCursorScreenPos(ImVec2(o.x,o.y+height+10));
+  return height+10;
  }
  void Footer(ImGuiIO& io,bool running){
-  auto* draw=ImGui::GetWindowDrawList();auto origin=ImGui::GetWindowPos();const float top=io.DisplaySize.y-74;
-  draw->AddRectFilled(ImVec2(origin.x,origin.y+top),ImVec2(origin.x+io.DisplaySize.x,origin.y+io.DisplaySize.y),IM_COL32(10,11,14,255));
-  draw->AddLine(ImVec2(origin.x,origin.y+top),ImVec2(origin.x+io.DisplaySize.x,origin.y+top),IM_COL32(40,43,50,255));
+  auto* draw=ImGui::GetWindowDrawList();auto window=ImGui::GetWindowPos();const float top=io.DisplaySize.y-74;
+  const float sidebar=std::clamp(io.DisplaySize.x*.19f,210.f,270.f);const ImVec2 origin(window.x+sidebar,window.y);
+  draw->AddLine(ImVec2(origin.x+24,origin.y+top),ImVec2(window.x+io.DisplaySize.x-24,origin.y+top),IM_COL32(40,43,50,255));
   const bool ok=Ready(installation_)&&Missing().empty()&&!status_error_;
   if(ok)FilledCheck(draw,ImVec2(origin.x+34,origin.y+top+37),14);else Warning(draw,ImVec2(origin.x+34,origin.y+top+37),14);
   const float buttons=200+12+200+20;
   ImGui::SetCursorScreenPos(ImVec2(origin.x+58,origin.y+top+12));
-  ImGui::BeginChild("Status",ImVec2(std::max(120.f,io.DisplaySize.x-58-buttons-16),52),ImGuiChildFlags_None,ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoBackground);
+  ImGui::BeginChild("Status",ImVec2(std::max(120.f,io.DisplaySize.x-sidebar-58-buttons-16),52),ImGuiChildFlags_None,ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoBackground);
   const std::string text=running&&precompiling_?L("Pré-compilando shaders para a sua placa. Pode levar alguns minutos na primeira vez.","Pre-compiling shaders for your GPU. The first time can take a few minutes.","Precompilando shaders para tu tarjeta. La primera vez puede tardar unos minutos."):running?L("Partida aberta. Ao terminar, feche a janela do jogo.","Match open. When you finish, close the game window.","Partida abierta. Al terminar, cierra la ventana del juego."):status_;
+  // Centred on the status icon (top+37): the child spans top+12..top+64.
+  {const float wrap=ImGui::GetContentRegionAvail().x;const float th=ImGui::CalcTextSize(text.c_str(),nullptr,false,wrap).y;ImGui::SetCursorPosY(std::max(0.f,(52-th)/2-1));}
   ImGui::TextWrapped("%s",text.c_str());ImGui::EndChild();
-  ImGui::SetCursorScreenPos(ImVec2(origin.x+io.DisplaySize.x-buttons,origin.y+top+14));
+  ImGui::SetCursorScreenPos(ImVec2(window.x+io.DisplaySize.x-buttons,origin.y+top+14));
   SteamButton();ImGui::SameLine(0,12);
   ImGui::BeginDisabled(running||Preparing()||DlcBusy()||!prepared_||!Ready(installation_)||!Missing().empty());
   PushSize(1);
@@ -451,28 +580,24 @@ class Launcher final:public rex::ui::ImGuiDialog{
   ImGui::PushStyleColor(ImGuiCol_TitleBgActive,ImVec4(.45f,.07f,.11f,1));ImGui::PushStyleColor(ImGuiCol_Header,ImVec4(.45f,.08f,.12f,1));ImGui::PushStyleColor(ImGuiCol_HeaderHovered,ImVec4(.60f,.11f,.16f,1));
   ImGui::PushStyleColor(ImGuiCol_SliderGrab,kRed);ImGui::PushStyleColor(ImGuiCol_PopupBg,ImVec4(.07f,.075f,.09f,.98f));ImGui::PushStyleColor(ImGuiCol_ModalWindowDimBg,ImVec4(0,0,0,.55f));
   ImGui::Begin("###ufc_setup",nullptr,ImGuiWindowFlags_NoDecoration|ImGuiWindowFlags_NoMove|ImGuiWindowFlags_NoSavedSettings|ImGuiWindowFlags_NoScrollbar|ImGuiWindowFlags_NoScrollWithMouse);
-  const float header=DrawHeader(io);
-  const float side=std::clamp(io.DisplaySize.x*.025f,14.f,40.f);
-  // Tabs sit on the lower edge of the art, as in the layout.
-  ImGui::SetCursorPos(ImVec2(side,header-38));
-  ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(22,10));ImGui::PushStyleVar(ImGuiStyleVar_TabRounding,7);ImGui::PushStyleVar(ImGuiStyleVar_TabBarBorderSize,0);
-  ImGui::PushStyleColor(ImGuiCol_Tab,ImVec4(.10f,.10f,.12f,.92f));ImGui::PushStyleColor(ImGuiCol_TabHovered,ImVec4(.55f,.10f,.14f,1));ImGui::PushStyleColor(ImGuiCol_TabSelected,kRed);ImGui::PushStyleColor(ImGuiCol_TabSelectedOverline,kRed);
-  ImGui::PushItemWidth(io.DisplaySize.x-2*side);
-  if(ImGui::BeginTabBar("Configurador")){
-   if(ImGui::BeginTabItem(L("Início###home","Home###home","Inicio###home"))){tab_=0;ImGui::EndTabItem();}
-   if(ImGui::BeginTabItem(L("Vídeo e idioma###video","Video and language###video","Vídeo e idioma###video"))){tab_=1;ImGui::EndTabItem();}
-   if(ImGui::BeginTabItem(L("Teclado e controle###input","Keyboard and controller###input","Teclado y mando###input"))){tab_=2;ImGui::EndTabItem();}
-   if(ImGui::BeginTabItem(L("Saves e registros###saves","Saves and logs###saves","Partidas y registros###saves"))){tab_=3;ImGui::EndTabItem();}
-   if(ImGui::BeginTabItem(L("Cheats###cheats","Cheats###cheats","Trucos###cheats"))){tab_=4;ImGui::EndTabItem();}
-   if(ImGui::BeginTabItem("Mods###mods")){if(tab_!=5)mods_loaded_=false;tab_=5;ImGui::EndTabItem();}
-   ImGui::EndTabBar();
-  }
-  ImGui::PopItemWidth();ImGui::PopStyleColor(4);ImGui::PopStyleVar(3);
-  {auto* draw=ImGui::GetWindowDrawList();auto o=ImGui::GetWindowPos();draw->AddLine(ImVec2(o.x,o.y+header),ImVec2(o.x+io.DisplaySize.x,o.y+header),ImGui::GetColorU32(kRed),2);}
-  ImGui::SetCursorPos(ImVec2(side,header+12));
+  // New layout: sidebar on the left, content on the right, footer (status, Steam, PLAY) under it.
+  const float sidebar=std::clamp(io.DisplaySize.x*.19f,210.f,270.f);
+  TopBar(io);
+  Sidebar(io,sidebar);
+  const float side=24,content_x=sidebar+side,content_w=io.DisplaySize.x-sidebar-2*side;
+  ImGui::SetCursorPos(ImVec2(content_x,kTopBar+18));
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(10,7));
-  ImGui::BeginChild("LauncherBody",ImVec2(io.DisplaySize.x-2*side,std::max(120.f,io.DisplaySize.y-header-12-74-10)),ImGuiChildFlags_None,ImGuiWindowFlags_NoBackground|(tab_==0?ImGuiWindowFlags_NoScrollbar:0));
-  switch(tab_){case 0:Home();break;case 1:Video();break;case 2:Keyboard();break;case 4:Cheats();break;case 5:Mods();break;default:Saves();break;}
+  ImGui::BeginChild("LauncherBody",ImVec2(content_w,std::max(120.f,io.DisplaySize.y-kTopBar-18-86)),ImGuiChildFlags_None,ImGuiWindowFlags_NoBackground|(tab_==0?ImGuiWindowFlags_NoScrollbar:0));
+  switch(tab_){
+   case 0:Home();break;
+   case 1:Video();BeginCard("InputCard",ImVec2(0,0));CardTitle(L("Teclado e controle","Keyboard and controller","Teclado y mando"),nullptr);Keyboard();EndCard();PrecompileCard();break;
+   case 4:Cheats();break;
+   case 5:Mods();break;
+   case 6:Registro();break;
+   case 7:Novidades();break;
+   case 8:Correcoes();break;
+   default:BeginCard("SavesCard",ImVec2(0,0));CardTitle("Saves",nullptr);Saves();EndCard();break;
+  }
   ImGui::EndChild();
   Footer(io,running);
   ImGui::PopStyleVar();
@@ -486,6 +611,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
   try{installation_=Discover(bundle_);if(!installation_.iso.empty()){auto iso=installation_.iso;source_index_=2;source_paths_[2]=iso;SelectSource(iso);}else if(Ready(installation_)){UseFolder(installation_.game,installation_.legacy_data);source_index_=original_?1:0;source_paths_[source_index_]=installation_.game;prepared_=Missing().empty();}else status_=L("Escolha a pasta do Reborn para começar.","Choose the Reborn folder to start.","Elige la carpeta de Reborn para empezar.");}catch(const std::exception& e){status_=e.what();}
   auto remembered=ReadIni(RegistryDirectory()/"sources.ini");for(int i=0;i<3;++i)if(remembered.contains("path"+std::to_string(i)))source_paths_[i]=Path(remembered["path"+std::to_string(i)]);if(remembered.contains("selected")){try{SwitchSource(std::clamp(std::stoi(remembered["selected"]),0,2));}catch(const std::exception& e){status_=e.what();}}
   CopySettings();saved_=settings_.Text();saved_cheats_.clear();
+  if(const char* t=std::getenv("UFC_TEST_LAUNCHER_TAB")){try{tab_=std::clamp(std::stoi(t),0,8);}catch(...){}}  // screenshots only
   if(Ready(installation_)&&!prepared_)Guard([&]{Prepare();});
  }
  bool Running()const{return Busy();}

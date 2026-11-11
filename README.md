@@ -9,7 +9,7 @@ The project combines a configuration launcher, controller and keyboard support, 
 Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
 for the mod belongs to its creators.
 
-> **BETA 1.6 source** includes safer GPU readback for created fighters, reusable readback buffers, and an experimental Auto reward option for Career techniques. [Read the BETA 1.6 notes](docs/GITHUB-RELEASE-BETA1.6.md).
+> **BETA 1.7 source** runs every scene the game dropped to 30 FPS at 60 FPS (walkouts included) at its original speed, shows created fighters on fighter select in about 1.5 s, brings the CAF tab back in Reborn, and adds several stability fixes. [Read the BETA 1.7 notes](docs/GITHUB-RELEASE-BETA1.7.md).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -29,7 +29,7 @@ for the mod belongs to its creators.
 | Cheats | Full Training Rewards (Auto Mode), experimental Maximum Technique Reward (Auto), and Double Money (Career). All are off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.6
+## What's new — P7 to BETA 1.7
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -50,6 +50,7 @@ BETA 1.3 ── Original edition: scaled copies no longer read back (3×: ~30 �
 BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene changes (page-protection query 1,000–10,000× faster)
 BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences) · Reborn crash fix (jump table cut to 7 of 32 entries)
 BETA 1.6 ── safer GPU readback for created fighters · reuse readback buffers up to 16 MiB · experimental Auto reward for Career techniques
+BETA 1.7 ── 60 FPS walkouts, intros and other 30 FPS scenes at original speed · created fighter on select in ~1.5 s (was 4.4 s) with a texture cache · Reborn CAF tab · announcer no longer waits for Start · new launcher look with a Fixes tab
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the
@@ -218,6 +219,11 @@ to public issues.
 Thanks to the developers and contributors behind **ReXGlue**, **Xenia**, **Dear ImGui**, **RenderDoc**, **AMD FidelityFX
 (FSR 1)** and the graphics and recompilation communities. Earlier HydroThunderPORT performance work informed optimizations
 adapted for this project.
+
+Some BETA 1.7 fixes started from ideas found in [UFC3ReX](https://github.com/360recomper/UFC3ReX) by 360recomper: the
+created fighter 3D preview freeze, the announcer waiting for Start, saving the first-start answers, the PRIDE Liddell vs
+Quarry load crash and the steady skin lighting option. We studied how they explained each problem and wrote our own
+implementation; no UFC3ReX code is included in this repository.
 
 Own code uses [MIT](LICENSE). ReXGlue/Xenia-derived files retain BSD licensing; the RenderDoc header retains its MIT notice.
 See [third-party notices](THIRD_PARTY_NOTICES.md) and [LICENSES](LICENSES/).

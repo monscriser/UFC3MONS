@@ -8,9 +8,11 @@ REXCVAR_DEFINE_BOOL(ufc_reborn_footer_localization,true,"UFC","Localize Reborn's
 REXCVAR_DEFINE_BOOL(ufc_reborn_footer_native_buttons,false,"Tests","Use native translated accept/back labels instead of the embedded duplicate (test only)");
 REXCVAR_DEFINE_BOOL(ufc_reborn_footer_signature_positive,false,"Tests","Alter only the expected footer signature to prove that mismatches preserve all guest bytes");
 inline void LocalizeUfcRebornFooter(rex::Runtime* runtime,int language){
- if(!REXCVAR_GET(ufc_reborn_footer_localization)||language<=0||language>5){REXLOG_INFO("[ufc-footer] localized=false language={}",language);return;}
+ // The created fighters page flag lives in the Reborn-only unit; absent (Original) = false.
+ const bool caf=rex::cvar::GetFlagByName("ufc_reborn_caf_page")=="true";
+ if(!REXCVAR_GET(ufc_reborn_footer_localization)||language<0||language>5||(language==0&&!caf)){REXLOG_INFO("[ufc-footer] localized=false language={}",language);return;}
  auto* memory=runtime->memory();auto* base=memory->virtual_membase();
- auto slots=ufc_footer::Slots(language,REXCVAR_GET(ufc_reborn_footer_native_buttons));
+ auto slots=ufc_footer::Slots(language,REXCVAR_GET(ufc_reborn_footer_native_buttons),caf);
  const bool positive=REXCVAR_GET(ufc_reborn_footer_signature_positive);
  if(positive)slots.front().before.front()^=1;
  // Verify every complete slot, including zero padding, before touching any slot.
@@ -24,5 +26,5 @@ inline void LocalizeUfcRebornFooter(rex::Runtime* runtime,int language){
   if(!heap->Protect(slot.address,uint32_t(slot.capacity),previous)||!same)throw std::runtime_error("Cannot verify localized Reborn footer");
   ++writes;
  }
- REXLOG_INFO("[ufc-footer] localized=true language={} slots={} verified=true native_buttons={}",language,writes,REXCVAR_GET(ufc_reborn_footer_native_buttons));
+ REXLOG_INFO("[ufc-footer] localized=true language={} slots={} verified=true native_buttons={} caf={}",language,writes,REXCVAR_GET(ufc_reborn_footer_native_buttons),caf);
 }

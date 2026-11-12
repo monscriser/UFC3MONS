@@ -2,12 +2,14 @@
 
 ### Experimental native PC project for Windows & Linux
 
+> 🎯 **Main focus: the Reborn mod.** UFC3MONS is built first for the community-created **UFC Undisputed Reborn** mod. Reborn gets
+> the most testing and the most fixes; the Original game is supported too. Credit for Reborn belongs to its creators.
+
 **UFC3MONS** is an experimental, unofficial native PC project for UFC Undisputed 3 on Windows and Linux. It uses static
 recompilation with ReXGlue, a Vulkan graphics backend and Xenia-derived compatibility components.
 
 The project combines a configuration launcher, controller and keyboard support, game integration and CPU/GPU improvements.
-Original and Reborn configurations are tracked separately. Most work targets the **community-created Reborn mod**; credit
-for the mod belongs to its creators.
+Original and Reborn configurations are tracked separately.
 
 > **BETA 1.7 source** runs every scene the game dropped to 30 FPS at 60 FPS (walkouts included) at its original speed, shows created fighters on fighter select in about 1.5 s, brings the CAF tab back in Reborn, and adds several stability fixes. [Read the BETA 1.7 notes](docs/GITHUB-RELEASE-BETA1.7.md).
 > Original game files are not included: you need your own copy of the game.

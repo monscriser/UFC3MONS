@@ -55,7 +55,7 @@ fs::path LanguageFile(){return RegistryDirectory()/"config/launcher-language.ini
 // Fonts baked by the app: 0 = 16 px, 1 = 21 px, 2 = 28 px (fallback: scaled 16 px).
 void PushSize(int index){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(index<fonts.Size)ImGui::PushFont(fonts[index],fonts[index]->LegacySize);else ImGui::PushFont(fonts[0],index==1?21.f:index==2?28.f:16.f);}
 ImU32 Col(float r,float g,float b,float a=1){return ImGui::GetColorU32(ImVec4(r,g,b,a));}
-constexpr const char* kDisplayVersion="BETA 1.7";
+constexpr const char* kDisplayVersion="BETA 1.8";
 const ImVec4 kRed(.84f,.11f,.16f,1),kRedHover(.93f,.17f,.22f,1),kRedActive(.70f,.08f,.12f,1),kGreen(.20f,.85f,.42f,1),kMuted(.70f,.73f,.78f,1);
 void CheckMark(ImDrawList* draw,ImVec2 c,float r,ImU32 color,float thickness){ImVec2 pts[3]={ImVec2(c.x-r*.45f,c.y+r*.02f),ImVec2(c.x-r*.12f,c.y+r*.36f),ImVec2(c.x+r*.48f,c.y-r*.34f)};draw->AddPolyline(pts,3,color,ImDrawFlags_None,thickness);}
 void FilledCheck(ImDrawList* draw,ImVec2 c,float r){draw->AddCircleFilled(c,r,Col(.13f,.72f,.33f),32);CheckMark(draw,c,r,Col(.04f,.08f,.05f),r*.24f);}
@@ -427,18 +427,9 @@ class Launcher final:public rex::ui::ImGuiDialog{
   ImGui::Spacing();
   struct Item{const char* pt;const char* en;const char* es;};
   static const Item items[]={
-   {"Lutador criado aparece na seleção em cerca de 1,5 s (antes 4,4 s), sem queda de FPS.","Created fighters show up on fighter select in about 1.5 s (was 4.4 s), with no FPS drop.","Los luchadores creados aparecen en la selección en cerca de 1,5 s (antes 4,4 s), sin caída de FPS."},
-   {"As texturas do lutador criado ficam guardadas na pasta cache; da segunda vez ele carrega mais rápido.","Created fighter textures are kept in the cache folder; the second time they load faster.","Las texturas del luchador creado se guardan en la carpeta cache; la segunda vez cargan más rápido."},
-   {"O preview 3D do lutador criado não congela mais quando você passa rápido pela lista.","The created fighter 3D preview no longer freezes when you scroll quickly through the list.","La vista 3D del luchador creado ya no se congela al pasar rápido por la lista."},
-   {"Todas as cenas que o jogo baixava para 30 FPS, incluindo a entrada do lutador, agora rodam a 60 FPS na velocidade original.","Every scene the game dropped to 30 FPS, walkouts included, now runs at 60 FPS at its original speed.","Todas las escenas que el juego bajaba a 30 FPS, incluida la entrada del luchador, ahora van a 60 FPS a su velocidad original."},
-   {"A apresentação do locutor não fica mais presa esperando Start.","The announcer introduction no longer gets stuck waiting for Start.","La presentación del locutor ya no se queda esperando Start."},
-   {"Reborn: a aba CAF volta à seleção de lutador, só com os lutadores criados. Gatilhos: UFC, PRIDE, Aleatório, CAF.","Reborn: the CAF tab is back on fighter select, with only created fighters. Triggers: UFC, PRIDE, Random, CAF.","Reborn: la pestaña CAF vuelve a la selección de luchador, solo con los luchadores creados. Gatillos: UFC, PRIDE, Aleatorio, CAF."},
-   {"Reborn: correção para a capa da revista da Carreira que às vezes saía corrompida.","Reborn: fix for the Career magazine cover that sometimes came out corrupted.","Reborn: corrección para la portada de la revista de la Carrera que a veces salía corrupta."},
-   {"PRIDE: corrigido o fechamento do jogo ao carregar Liddell x Quarry.","PRIDE: fixed the crash when loading Liddell vs Quarry.","PRIDE: corregido el cierre del juego al cargar Liddell vs Quarry."},
-   {"As respostas das perguntas do primeiro início agora ficam salvas.","First-start answers are now saved.","Las respuestas del primer inicio ahora se guardan."},
-   {"Nova aba Correções no launcher, com o brilho da pele igual em todas as câmeras (opcional).","New Fixes tab in the launcher, with same skin lighting on every camera (optional).","Nueva pestaña Correcciones en el launcher, con el mismo brillo de piel en todas las cámaras (opcional)."},
-   {"Cheat novo: recompensa máxima ao aprender ou aperfeiçoar técnicas no modo Auto.","New cheat: maximum reward when learning or improving techniques in Auto mode.","Truco nuevo: recompensa máxima al aprender o mejorar técnicas en modo Auto."},
-   {"Launcher com visual novo. Logs e cheats vêm desligados.","New launcher look. Logs and cheats start off.","Launcher con aspecto nuevo. Registros y trucos vienen desactivados."},
+   {"Carreira e treino: lutadores criados e genéricos não ficam mais pretos ou com chuvisco na arena (Steam Deck e placas AMD). As otimizações de lutador criado continuam ligadas.","Career and training: created and generic fighters no longer turn black or into static in the arena (Steam Deck and AMD graphics). Created-fighter optimizations stay on.","Carrera y entrenamiento: los luchadores creados y genéricos ya no salen negros o con estática en la arena (Steam Deck y gráficas AMD). Las optimizaciones de luchador creado siguen activas."},
+   {"O cache de texturas da versão anterior é descartado automaticamente; não é preciso apagar nada.","The texture cache from the previous version is discarded automatically; nothing needs to be deleted.","La caché de texturas de la versión anterior se descarta automáticamente; no hace falta borrar nada."},
+   {"Reborn 1.1: corrigido o fechamento do jogo ao carregar a Exibição peso-mosca na O2 Arena e em outras arenas (Windows e Linux).","Reborn 1.1: fixed the crash when loading a flyweight Exhibition at the O2 Arena and other arenas (Windows and Linux).","Reborn 1.1: corregido el cierre del juego al cargar una Exhibición de peso mosca en el O2 Arena y otras arenas (Windows y Linux)."},
   };
 
 

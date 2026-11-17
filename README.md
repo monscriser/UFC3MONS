@@ -11,7 +11,7 @@ recompilation with ReXGlue, a Vulkan graphics backend and Xenia-derived compatib
 The project combines a configuration launcher, controller and keyboard support, game integration and CPU/GPU improvements.
 Original and Reborn configurations are tracked separately.
 
-> **BETA 1.8 source** fixes created and generic fighters turning black or into static in Career fights and training on the Steam Deck and AMD graphics (all created-fighter speed-ups stay on) and fixes the Reborn 1.1 flyweight Exhibition crash on Windows and Linux. [Read the BETA 1.8 notes](docs/GITHUB-RELEASE-BETA1.8.md).
+> **BETA 1.7 source** runs every scene the game dropped to 30 FPS at 60 FPS (walkouts included) at its original speed, shows created fighters on fighter select in about 1.5 s, brings the CAF tab back in Reborn, and adds several stability fixes. [Read the BETA 1.7 notes](docs/GITHUB-RELEASE-BETA1.7.md).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
@@ -31,7 +31,7 @@ Original and Reborn configurations are tracked separately.
 | Cheats | Full Training Rewards (Auto Mode), experimental Maximum Technique Reward (Auto), and Double Money (Career). All are off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.8
+## What's new — P7 to BETA 1.7
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -53,7 +53,6 @@ BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene c
 BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences) · Reborn crash fix (jump table cut to 7 of 32 entries)
 BETA 1.6 ── safer GPU readback for created fighters · reuse readback buffers up to 16 MiB · experimental Auto reward for Career techniques
 BETA 1.7 ── 60 FPS walkouts, intros and other 30 FPS scenes at original speed · created fighter on select in ~1.5 s (was 4.4 s) with a texture cache · Reborn CAF tab · announcer no longer waits for Start · new launcher look with a Fixes tab
-BETA 1.8 ── Career/training: no more black or static created and generic fighters on Steam Deck and AMD (GPU wait restored, speed-ups kept) · texture cache key fix and old cache discarded · Reborn 1.1 flyweight Exhibition crash fixed on Windows and Linux
 ```
 
 P8 and P9 were investigation builds. The full changelog with measurements is in the

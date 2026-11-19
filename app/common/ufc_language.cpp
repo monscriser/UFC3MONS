@@ -13,6 +13,7 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+REXCVAR_DEFINE_BOOL(ufc_reborn_translated_text,false,"UFC","Reborn: replace Reborn's English texts with the Original game's translation (off: Reborn's own texts, no flicker between the two in the career menus)");
 extern "C" void __real___imp__XGetLanguage(PPCContext&,uint8_t*);
 extern "C" void __wrap___imp__XGetLanguage(PPCContext& ctx,uint8_t* base){
  __real___imp__XGetLanguage(ctx,base);
@@ -22,6 +23,11 @@ extern "C" void __wrap___imp__XGetLanguage(PPCContext& ctx,uint8_t* base){
 }
 
 void MountUfcLocalizedNames(rex::Runtime* runtime,const std::filesystem::path& game){MountUfcShirtAliases(runtime,game);MountUfcGymLayout(runtime,game);MountUfcXboxButtonArt(runtime,game);int language=0;for(int i=0;i<6;++i)if(rex::cvar::GetFlagByName("user_language")==std::to_string(ufc::LanguageIds[i]))language=i;
+ // BETA 1.8: in Portuguese (and the other translations) the Reborn career menus flickered between Reborn's
+ // own English text/font (texts built into its menus and its mod code) and the Original translation that
+ // replaced Reborn's EN tables. Reborn's text is now the main text: its tables are left as they are unless
+ // --ufc_reborn_translated_text=true (the BETA 1.7 behaviour).
+ if(language&&!REXCVAR_GET(ufc_reborn_translated_text)){REXLOG_INFO("[ufc-language] reborn text kept (selected={}, translation off)",ufc::LanguageCodes[language]);language=0;}
  LocalizeUfcRebornFooter(runtime,language);if(!language)return;
  auto file=ufc::PrepareLocalizedNames(game,language);
  unsigned mounted=0;

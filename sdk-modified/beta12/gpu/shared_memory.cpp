@@ -1,3 +1,5 @@
+#include <array>
+#include <chrono>
 #include "ufc_wait_diag.h"
 /**
  ******************************************************************************
@@ -284,40 +286,117 @@ bool SharedMemory::AllocateSparseHostGpuMemoryRange(uint32_t offset_allocations,
   return false;
 }
 
+// UFC Ally (18/11/2026): blocks the CPU rewrites every frame skip the write watch.
+// Measured on the ROG Ally in a Career fight (LD_PRELOAD counter on mprotect): ~18,800 mprotect calls
+// and ~6,000 write faults per second on only ~700 ranges, each re-protected about twice per frame:
+// dynamic buffers (cloth, skinning, particles) are uploaded, protected, written by the CPU (fault ->
+// unprotect -> invalidate) and uploaded again every frame. mprotect alone was 8.3% of all process CPU
+// samples, plus the fault handler and the TLB shootdowns every mprotect costs on all cores.
+// A 256 KB block (64 pages, one valid-bit word) invalidated by CPU writes in kHotStreak updates in a row,
+// each less than kHotGapMs apart, becomes "hot" for kHotHoldMs: an upload no longer marks its pages
+// valid nor protects them, so every request uploads the current CPU data (no fault, no mprotect), and
+// the watches of those pages are fired before each such upload, exactly as a CPU write would.
+// Blocks holding GPU-written data are never hot. --ufc_hot_block_skip_watch=false = original behaviour.
+// EXPERIMENTAL, OFF by default: a prototype of this idea injected into the BETA 1.8 on the Ally (skip the
+// re-protection of hot CPU-uploaded blocks and invalidate them from another thread every 8 ms) cut
+// mprotect calls by 92% but showed stale textures (fighter shorts black) and one black screen. Turn it on
+// only to test the exact version below in a compiled build, and compare images with it off.
+REXCVAR_DEFINE_BOOL(ufc_hot_block_skip_watch, false, "GPU",
+                    "Shared memory: do not write-watch 256 KB blocks the CPU rewrites every frame (re-upload them instead)");
+namespace {
+constexpr uint32_t kHotBlocks = 512u * 1024 * 1024 / (256 * 1024);  // kBufferSize / 256 KB
+constexpr uint32_t kHotStreak = 6, kHotGapMs = 50, kHotHoldMs = 1500;
+struct HotBlock {
+  uint32_t last_ms = 0;   // last CPU invalidation (ms, steady clock)
+  uint32_t hot_until = 0; // hot while now < hot_until
+  uint16_t streak = 0;
+};
+std::array<HotBlock, kHotBlocks> ufc_hot_blocks{};
+uint64_t ufc_hot_skipped_pages = 0;
+uint32_t HotNowMs() {
+  return uint32_t(std::chrono::duration_cast<std::chrono::milliseconds>(
+                      std::chrono::steady_clock::now().time_since_epoch()).count());
+}
+// Called with the global lock held, for each 256 KB block a CPU write invalidated.
+void HotNoteCpuInvalidation(uint32_t block) {
+  if (block >= kHotBlocks) return;
+  HotBlock& b = ufc_hot_blocks[block];
+  const uint32_t now = HotNowMs();
+  b.streak = (now - b.last_ms <= kHotGapMs) ? uint16_t(std::min<uint32_t>(b.streak + 1u, 0xFFFFu)) : uint16_t(1);
+  b.last_ms = now;
+  if (b.streak >= kHotStreak) b.hot_until = now + kHotHoldMs;
+}
+bool HotBlockNow(uint32_t block, uint32_t now) {
+  return block < kHotBlocks && int32_t(ufc_hot_blocks[block].hot_until - now) > 0;
+}
+}  // namespace
+
 void SharedMemory::MakeRangeValid(uint32_t start, uint32_t length, bool written_by_gpu) {
   ufc_wait_diag::Scope diag(ufc_wait_diag::RangeValid,start,length);
+  // Original MakeRangeValid body.
+  auto make_valid = [this](uint32_t start, uint32_t length, bool written_by_gpu) {
+    if (length == 0 || start >= kBufferSize) {
+      return;
+    }
+    length = std::min(length, kBufferSize - start);
+    uint32_t last = start + length - 1;
+    uint32_t valid_page_first = start >> page_size_log2_;
+    uint32_t valid_page_last = last >> page_size_log2_;
+    uint32_t valid_block_first = valid_page_first >> 6;
+    uint32_t valid_block_last = valid_page_last >> 6;
+
+    {
+      auto global_lock = global_critical_region_.Acquire();
+
+      for (uint32_t i = valid_block_first; i <= valid_block_last; ++i) {
+        uint64_t valid_bits = UINT64_MAX;
+        if (i == valid_block_first) {
+          valid_bits &= ~((uint64_t(1) << (valid_page_first & 63)) - 1);
+        }
+        if (i == valid_block_last && (valid_page_last & 63) != 63) {
+          valid_bits &= (uint64_t(1) << ((valid_page_last & 63) + 1)) - 1;
+        }
+        system_page_flags_valid_[i] |= valid_bits;
+        uint64_t& gpu_written = system_page_flags_valid_and_gpu_written_[i];
+        gpu_written = written_by_gpu ? (gpu_written | valid_bits) : (gpu_written & ~valid_bits);
+      }
+    }
+
+    if (memory_invalidation_callback_handle_) {
+      memory().EnablePhysicalMemoryAccessCallbacks(
+          valid_page_first << page_size_log2_,
+          (valid_page_last - valid_page_first + 1) << page_size_log2_, true, false);
+    }
+  };
   if (length == 0 || start >= kBufferSize) {
     return;
   }
-  length = std::min(length, kBufferSize - start);
-  uint32_t last = start + length - 1;
-  uint32_t valid_page_first = start >> page_size_log2_;
-  uint32_t valid_page_last = last >> page_size_log2_;
-  uint32_t valid_block_first = valid_page_first >> 6;
-  uint32_t valid_block_last = valid_page_last >> 6;
-
-  {
-    auto global_lock = global_critical_region_.Acquire();
-
-    for (uint32_t i = valid_block_first; i <= valid_block_last; ++i) {
-      uint64_t valid_bits = UINT64_MAX;
-      if (i == valid_block_first) {
-        valid_bits &= ~((uint64_t(1) << (valid_page_first & 63)) - 1);
+  if (!written_by_gpu && REXCVAR_GET(ufc_hot_block_skip_watch)) {
+    // Split the range around hot blocks: hot pages stay invalid and unwatched.
+    const uint32_t end = start + std::min(length, kBufferSize - start);
+    const uint32_t now = HotNowMs();
+    uint32_t run_start = start;
+    bool any_hot = false;
+    for (uint32_t block = start >> 18; block <= ((end - 1) >> 18); ++block) {
+      bool hot;
+      {
+        auto global_lock = global_critical_region_.Acquire();
+        hot = HotBlockNow(block, now) && system_page_flags_valid_and_gpu_written_[block] == 0;
       }
-      if (i == valid_block_last && (valid_page_last & 63) != 63) {
-        valid_bits &= (uint64_t(1) << ((valid_page_last & 63) + 1)) - 1;
-      }
-      system_page_flags_valid_[i] |= valid_bits;
-      uint64_t& gpu_written = system_page_flags_valid_and_gpu_written_[i];
-      gpu_written = written_by_gpu ? (gpu_written | valid_bits) : (gpu_written & ~valid_bits);
+      if (!hot) continue;
+      any_hot = true;
+      const uint32_t block_start = std::max(start, block << 18);
+      const uint32_t block_end = std::min(end, (block + 1) << 18);
+      if (block_start > run_start) make_valid(run_start, block_start - run_start, false);
+      ufc_hot_skipped_pages += (block_end - block_start) >> page_size_log2_;
+      run_start = block_end;
+    }
+    if (any_hot) {
+      if (end > run_start) make_valid(run_start, end - run_start, false);
+      return;
     }
   }
-
-  if (memory_invalidation_callback_handle_) {
-    memory().EnablePhysicalMemoryAccessCallbacks(
-        valid_page_first << page_size_log2_,
-        (valid_page_last - valid_page_first + 1) << page_size_log2_, true, false);
-  }
+  make_valid(start, length, written_by_gpu);
 }
 
 void SharedMemory::UnlinkWatchRange(WatchRange* range) {
@@ -558,6 +637,19 @@ bool SharedMemory::RequestRanges(const std::pair<uint32_t, uint32_t>* ranges, si
   if (ufc_rr_in_verify) {
     ++ufc_rr_verify_uploads;
   }
+  // UFC Ally: pages of hot blocks are never watched (see MakeRangeValid), so a CPU write to them is
+  // not reported by a fault. Report it here, before every upload of them, as the fault would have.
+  if (REXCVAR_GET(ufc_hot_block_skip_watch)) {
+    const uint32_t now = HotNowMs();
+    auto global_lock = global_critical_region_.Acquire();  // recursive: FireWatches takes it again
+    for (const auto& upload : upload_ranges_) {
+      const uint32_t first = upload.first, last = upload.first + upload.second - 1;
+      for (uint32_t block = first >> 6; block <= (last >> 6); ++block) {
+        if (!HotBlockNow(block, now)) continue;
+        FireWatches(std::max(first, block << 6), std::min(last, (block << 6) + 63), false);
+      }
+    }
+  }
   return UploadRanges(upload_ranges_);
 }
 
@@ -619,6 +711,7 @@ std::pair<uint32_t, uint32_t> SharedMemory::MemoryInvalidationCallback(
     }
     system_page_flags_valid_[i] &= ~invalidate_bits;
     system_page_flags_valid_and_gpu_written_[i] &= ~invalidate_bits;
+    HotNoteCpuInvalidation(i);  // UFC Ally: count CPU rewrites per 256 KB block
   }
 
   FireWatches(page_first, page_last, false);

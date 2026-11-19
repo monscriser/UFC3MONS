@@ -33,9 +33,31 @@ void MountUfcLocalizedNames(rex::Runtime* runtime,const std::filesystem::path& g
 }
 
 #include <rex/system/xio.h>
+#include <rex/system/kernel_state.h>
+#include <mutex>
+// BETA 1.8: Portuguese weight label of the Original (see ufc::PrepareOriginalWeightLabel). The Original reads the
+// game's own Portuguese tables, so the corrected copy of PT\generic.ytx is mounted the first time the game opens
+// a language table (before that open runs).
+static void MountUfcOriginalWeightLabel(){
+ if(rex::cvar::GetFlagByName("user_language")!="9")return;
+ try{
+  const auto game=std::filesystem::u8path(rex::cvar::GetFlagByName("game_data_root"));
+  const auto file=ufc::PrepareOriginalWeightLabel(game);
+  auto* entry=dynamic_cast<rex::filesystem::HostPathEntry*>(REX_KERNEL_STATE()->emulator()->file_system()->ResolvePath("game:\\DAT\\ytx\\PT\\generic.ytx"));
+  if(entry&&entry->OverrideReadOnlyFile(file))REXLOG_INFO("[ufc-language] original PT weight label PESO sha256={}",ufc::Hash(file));
+  else REXLOG_WARN("[ufc-language] original PT weight label not mounted");
+ }catch(const std::exception& e){REXLOG_WARN("[ufc-language] original PT weight label skipped: {}",e.what());}
+}
 REXCVAR_DEFINE_BOOL(ufc_language_diagnostics,false,"Tests","Trace bounded YTX guest opens to identify the active language alias");
 extern "C" void __real___imp__NtCreateFile(PPCContext&,uint8_t*);
 extern "C" void __wrap___imp__NtCreateFile(PPCContext& ctx,uint8_t* base){
+ static std::once_flag weight_label;
+ if(ctx.r5.u32){
+  const auto* attr=reinterpret_cast<const rex::system::X_OBJECT_ATTRIBUTES*>(base+ctx.r5.u32);
+  if(attr->name_ptr){const auto* name=reinterpret_cast<const rex::system::X_ANSI_STRING*>(base+attr->name_ptr);
+   if(name->pointer&&name->length>4&&name->length<4096){std::string_view path(reinterpret_cast<const char*>(base+name->pointer),name->length);
+    if(path.size()>4&&(path.ends_with(".ytx")||path.ends_with(".YTX")))std::call_once(weight_label,MountUfcOriginalWeightLabel);}}
+ }
  if(REXCVAR_GET(ufc_language_diagnostics)&&ctx.r5.u32){
   const auto* attr=reinterpret_cast<const rex::system::X_OBJECT_ATTRIBUTES*>(base+ctx.r5.u32);
   const uint32_t name_addr=attr->name_ptr;

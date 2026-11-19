@@ -32,9 +32,13 @@ void ShadowCaptureTick(){
 REXCVAR_DEFINE_STRING(ufc_test_input_file, "", "Tests", "Isolated functional test controller file");
 extern "C" void __real___imp__XamInputGetState(PPCContext&,uint8_t*);
 void UfcInputLockedCall(void(*)(PPCContext&,uint8_t*),PPCContext&,uint8_t*,const char*);
+void UfcQuitPanelObservePad(uint16_t buttons);  // ufc_quit_panel.cpp
 extern "C" void __wrap___imp__XamInputGetState(PPCContext& ctx,uint8_t* base) {
  const auto user=ctx.r3.u32,flags=ctx.r4.u32,ptr=ctx.r5.u32;
  UfcInputLockedCall(__real___imp__XamInputGetState,ctx,base,"GetState");
+ // Ally 18/11/2026: the quit panel reads the buttons the game just read (it must not call InputSystem
+ // from the UI thread: both threads livelocked in InputSystem::RefreshDevices, no image).
+ if(user==0&&ptr&&ctx.r3.u32==0){uint16_t pad;std::memcpy(&pad,base+ptr+4,2);UfcQuitPanelObservePad(__builtin_bswap16(pad));}
  static const auto file=REXCVAR_GET(ufc_test_input_file);
  if(file.empty()||user!=0||!ptr||((flags&0xff)&&(flags&1)==0))return;
  static std::mutex mutex;std::lock_guard lock(mutex);

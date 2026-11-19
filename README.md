@@ -11,7 +11,7 @@ recompilation with ReXGlue, a Vulkan graphics backend and Xenia-derived compatib
 The project combines a configuration launcher, controller and keyboard support, game integration and CPU/GPU improvements.
 Original and Reborn configurations are tracked separately.
 
-> **BETA 1.7 source** runs every scene the game dropped to 30 FPS at 60 FPS (walkouts included) at its original speed, shows created fighters on fighter select in about 1.5 s, brings the CAF tab back in Reborn, and adds several stability fixes. [Read the BETA 1.7 notes](docs/GITHUB-RELEASE-BETA1.7.md).
+> **BETA 1.8 source** fixes created and generic fighters turning black or into static in Career fights and training (all created-fighter speed-ups stay on), runs the pre-fight presentation at a true 60 FPS (smooth camera, no trail on the fighters, clean Career spotlights), fixes the Reborn 1.1 flyweight Exhibition crash on Windows and Linux, and ships as PGO builds. [Read the BETA 1.8 notes](docs/GITHUB-RELEASE-BETA1.8.md).
 > Original game files are not included: you need your own copy of the game.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)

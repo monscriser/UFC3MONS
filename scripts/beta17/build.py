@@ -2,10 +2,24 @@
 """P14 launcher build: recompile ufc_launcher_ui + main (bigger fonts) + frontdoor, relink the 4 game exes.
 Recipes come from P12 (Reborn win/linux, Original linux) and P13 (Original win). Usage: build.py [variant...] [--control]"""
 import json, os, re, subprocess, sys, hashlib, shutil
-P14 = "/mnt/c/Users/Monscriser/Documents/Codex/2026-11-09/o-zip-inclui-o-c-digo/work/technique-cheat/build-tree"
+from pathlib import Path
+P14 = os.environ.get(
+    "UFC3_BUILD_TREE",
+    "/mnt/c/Users/Monscriser/Documents/Codex/2026-11-09/o-zip-inclui-o-c-digo/work/technique-cheat/build-tree",
+)
 P12 = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/shirt-variety-p12-27-10/release"
-P13O = "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-27/continue-a-investiga-o-da-faixa/work/p13-original"
+P13O = os.environ.get(
+    "UFC3_ORIGINAL_WIN_RECIPES",
+    "/mnt/c/Users/Monscriser/Documents/Codex/2026-10-27/continue-a-investiga-o-da-faixa/work/p13-original",
+)
+WIN_CXX = os.environ.get("UFC3_WINDOWS_CXX")
 SRC12, SRC14 = P12 + "/src", P14 + "/src"
+REPO_CAF_SOURCE = Path(__file__).resolve().parents[2] / "app/common/ufc_caf_fast_build.cpp"
+REBORN_SWITCH_FIX = Path(P12).parents[1] / "beta15-fix-switch"
+REBORN_SWITCH_OBJECTS = {
+    "win-reborn": REBORN_SWITCH_FIX / "win/fix.obj",
+    "linux-reborn": REBORN_SWITCH_FIX / "linux/fix.o",
+}
 V = {
  "win-reborn":  dict(dir=P12+"/apps/windows/reborn", main=P12+"/apps/windows/reborn/main.command.json", ui=P12+"/apps/windows/reborn/ufc_launcher_ui.command.json", link=P12+"/apps/windows/reborn/link.command.json", cwd="/mnt/e/UFC3-RexGlue-Lab/build/native-r9-sdk", ext=".obj", exe="ufc3-launcher-l1.exe"),
  "win-original":dict(dir=P13O, main=P13O+"/compile.command.json", ui=P12+"/apps/windows/original/ufc_launcher_ui.command.json", link=P13O+"/link-new.command.json", cwd="/mnt/e/UFC3-RexGlue-Lab/build/original-v48", ext=".obj", exe="ufc3-original-v48.exe"),
@@ -154,19 +168,38 @@ def swap(args, old, new):
     if out == args: sys.exit(f"not found in recipe: {old}")
     return out
 
+def load_recipe(path):
+    with open(path, encoding="utf-8") as recipe:
+        args = json.load(recipe)
+    if WIN_CXX and args[0].endswith("/x86_64-w64-mingw32-clang++"):
+        args[0] = WIN_CXX
+    original = "/mnt/c/Users/Monscriser/Documents/Codex/"
+    archive = os.environ.get("UFC3_CODEX_ARCHIVE")
+    if not archive:
+        return args
+    archive = archive.rstrip("/") + "/"
+    for i, arg in enumerate(args):
+        prefix = "-I" if arg.startswith("-I") else ""
+        source = arg[len(prefix):]
+        if source.startswith(original) and not Path(source).exists():
+            recovered = archive + source[len(original):]
+            if Path(recovered).exists():
+                args[i] = prefix + recovered
+    return args
+
 def build(name, control):
     v = V[name]; out = f"{P14}/build/{name}" + ("-control" if control else "") + ("-medicao" if MEASURE else "") + ("-selectdiag" if os.environ.get("UFC_SELECT_PREVIEW_DIAG") == "1" else ""); os.makedirs(out, exist_ok=True)
-    link = json.load(open(v["link"]))
+    link = load_recipe(v["link"])
     old_ui = next(a for a in link if a.endswith("ufc_launcher_ui" + v["ext"]))
     old_main = next(a for a in link if a.endswith("/main" + v["ext"]))
     exe_index = link.index("-o") + 1
     if not control:
         # launcher UI from the P14 sources
-        ui = [a.replace(SRC12, SRC14) for a in json.load(open(v["ui"]))]
+        ui = [a.replace(SRC12, SRC14) for a in load_recipe(v["ui"])]
         ui[ui.index("-o") + 1] = f"{out}/ufc_launcher_ui{v['ext']}"
         print(f"[{name}] compile ui"); run(ui, v["cwd"], f"{out}/ui.log")
         # main with the extra font sizes (headers stay on P12 sources)
-        main = json.load(open(v["main"])); src = next(a for a in main if a.endswith("/main.cpp"))
+        main = load_recipe(v["main"]); src = next(a for a in main if a.endswith("/main.cpp"))
         text = open(src, encoding="utf-8").read()
         if text.count(FONT_OLD) != 1: sys.exit(f"font line not found once in {src}")
         for old in (CLASS_OLD, CLOSE_OLD, POST_OLD, FIN_OLD, PRE_OLD):
@@ -215,14 +248,15 @@ def build(name, control):
         units = ("ufc_training_rewards", "ufc_crash_report", "ufc_adaptive_rate", "ufc_mods_mount", "ufc_caf_fast_build", "ufc_cutscene_60", "ufc_rex_caf_preview_hold", "ufc_rex_announcer_lines", "ufc_rex_first_boot_save", "ufc_rex_position_guard", "ufc_rex_steady_skin_light") + (("ufc_reborn_caf_page",) if "reborn" in name else ()) + (("ufc_select_preview_diag",) if os.environ.get("UFC_SELECT_PREVIEW_DIAG") == "1" else ()) + (("ufc_measure_faults",) if MEASURE else ())
         if MEASURE and name.startswith("linux"): link.insert(link.index("-o"), "-Wl,--export-dynamic-symbol=mprotect")
         for unit in units:
-            tr = swap(json.load(open(v["main"])), src, f"{SRC14}/{unit}.cpp")
+            unit_source = str(REPO_CAF_SOURCE) if unit == "ufc_caf_fast_build" else f"{SRC14}/{unit}.cpp"
+            tr = swap(load_recipe(v["main"]), src, unit_source)
             tr[tr.index("-o") + 1] = f"{out}/{unit}{v['ext']}"
             print(f"[{name}] compile {unit}"); run(tr, v["cwd"], f"{out}/{unit}.log")
             link.insert(link.index("-o"), f"{out}/{unit}{v['ext']}")
         # Reborn: ufc_language (NtCreateFile wrapper) from the P14 sources, for the career
         # magazine readback window. The Original keeps its own language unit (readback is on there).
         if "reborn" in name:
-            lang = json.load(open(v["dir"] + "/ufc_language.command.json"))
+            lang = load_recipe(v["dir"] + "/ufc_language.command.json")
             lsrc = next(a for a in lang if a.endswith("/ufc_language.cpp"))
             lang = swap(lang, lsrc, f"{SRC14}/ufc_language.cpp")
             lang[lang.index("-o") + 1] = f"{out}/ufc_language{v['ext']}"
@@ -233,7 +267,7 @@ def build(name, control):
     # Diagnostic Windows Reborn build: test controller with trigger support (LT/RT pages).
     if name == "win-reborn" and os.environ.get("UFC_SELECT_PREVIEW_DIAG") == "1":
         p6 = "/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/launcher-ui-p6/apps/windows/reborn"
-        ti = json.load(open(p6 + "/input.command.json"))
+        ti = load_recipe(p6 + "/input.command.json")
         tsrc = next(a for a in ti if a.endswith("/ufc_test_input.cpp"))
         ti = swap(ti, tsrc, f"{SRC14}/testinput-reborn/ufc_test_input.cpp")
         ti[ti.index("-o") + 1] = f"{out}/ufc_test_input{v['ext']}"
@@ -257,15 +291,27 @@ def build(name, control):
         assert old in link, old
         link[link.index(old)] = new
         print(f"[{name}] swap {old} -> {new}")
+    elif name in REBORN_SWITCH_OBJECTS:
+        # The inherited P12 recipes list the original chunk, which predates BETA 1.5.
+        # Require its corrected object so a normal Reborn build cannot regress the fix.
+        suffix = "ufc3_recomp.229.cpp.obj" if name == "win-reborn" else "ufc3_recomp.229.o"
+        matches = [i for i, arg in enumerate(link) if Path(arg).name == suffix]
+        fixed = REBORN_SWITCH_OBJECTS[name]
+        if len(matches) != 1 or not fixed.is_file():
+            sys.exit(f"[{name}] Missing BETA 1.5 switch replacement for {suffix}: {fixed}")
+        print(f"[{name}] swap {link[matches[0]]} -> {fixed}")
+        link[matches[0]] = str(fixed)
     exe_index = link.index("-o") + 1
     link[exe_index] = f"{out}/{v['exe']}"
     print(f"[{name}] link"); run(link, v["cwd"], f"{out}/link.log")
     print(f"[{name}] {sha(out + '/' + v['exe'])} {out}/{v['exe']}")
 
-def frontdoor():
+def frontdoor(platform=None):
     out = f"{P14}/build/frontdoor"; os.makedirs(out, exist_ok=True)
     for plat, exe in (("windows", "UFC3.exe"), ("linux", "UFC3")):
-        a = [x.replace(SRC12, SRC14) for x in json.load(open(f"{P12}/{plat}/frontdoor.command.json"))]
+        if platform and plat != platform:
+            continue
+        a = [x.replace(SRC12, SRC14) for x in load_recipe(f"{P12}/{plat}/frontdoor.command.json")]
         a[a.index("-o") + 1] = f"{out}/{exe}"
         cwd = "/mnt/e/UFC3-RexGlue-Lab/build/native-r9-sdk" if plat == "windows" else "/"
         print(f"[frontdoor {plat}]"); run(a, cwd, f"{out}/{plat}.log"); print(sha(f"{out}/{exe}"), exe)
@@ -274,4 +320,5 @@ args = [a for a in sys.argv[1:] if not a.startswith("--")]; control = "--control
 MEASURE = "--medicao" in sys.argv  # Linux measurement build: memory-watch fault/mprotect counters
 for n in args or list(V):
     if n == "frontdoor": frontdoor()
+    elif n in ("frontdoor-linux", "frontdoor-windows"): frontdoor(n.split("-", 1)[1])
     else: build(n, control)

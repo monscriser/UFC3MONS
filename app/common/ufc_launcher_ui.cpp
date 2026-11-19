@@ -55,7 +55,7 @@ fs::path LanguageFile(){return RegistryDirectory()/"config/launcher-language.ini
 // Fonts baked by the app: 0 = 16 px, 1 = 21 px, 2 = 28 px (fallback: scaled 16 px).
 void PushSize(int index){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(index<fonts.Size)ImGui::PushFont(fonts[index],fonts[index]->LegacySize);else ImGui::PushFont(fonts[0],index==1?21.f:index==2?28.f:16.f);}
 ImU32 Col(float r,float g,float b,float a=1){return ImGui::GetColorU32(ImVec4(r,g,b,a));}
-constexpr const char* kDisplayVersion="BETA 1.7";
+constexpr const char* kDisplayVersion="BETA 1.8";
 const ImVec4 kRed(.84f,.11f,.16f,1),kRedHover(.93f,.17f,.22f,1),kRedActive(.70f,.08f,.12f,1),kGreen(.20f,.85f,.42f,1),kMuted(.70f,.73f,.78f,1);
 void CheckMark(ImDrawList* draw,ImVec2 c,float r,ImU32 color,float thickness){ImVec2 pts[3]={ImVec2(c.x-r*.45f,c.y+r*.02f),ImVec2(c.x-r*.12f,c.y+r*.36f),ImVec2(c.x+r*.48f,c.y-r*.34f)};draw->AddPolyline(pts,3,color,ImDrawFlags_None,thickness);}
 void FilledCheck(ImDrawList* draw,ImVec2 c,float r){draw->AddCircleFilled(c,r,Col(.13f,.72f,.33f),32);CheckMark(draw,c,r,Col(.04f,.08f,.05f),r*.24f);}
@@ -74,6 +74,13 @@ bool StyledButton(const char* label,ImVec2 size,bool primary){
  bool pressed=ImGui::Button(label,size);ImGui::PopStyleColor(4);ImGui::PopStyleVar();return pressed;
 }
 void Muted(const char* text){ImGui::PushStyleColor(ImGuiCol_Text,kMuted);ImGui::TextWrapped("%s",text);ImGui::PopStyleColor();}
+// Ally fix: text drawn with AddText in a fixed box (source cards) shrinks to fit the box width instead of
+// being cut ("(Recomenda", "(XEX ou pas" at 1350x993). Never below 75% of the current size.
+void FitText(ImDrawList* draw,ImVec2 pos,float max_width,ImU32 color,const char* text){
+ const float size=ImGui::GetFontSize(),width=ImGui::CalcTextSize(text).x;
+ const float fit=width>max_width&&width>0?std::max(size*.75f,size*max_width/width):size;
+ draw->AddText(ImGui::GetFont(),fit,pos,color,text);
+}
 void CardTitle(const char* title,const char* subtitle){PushSize(1);ImGui::TextUnformatted(title);ImGui::PopFont();if(subtitle&&*subtitle)Muted(subtitle);}
 void BeginCard(const char* id,ImVec2 size,ImGuiWindowFlags flags=0){
  ImGui::PushStyleColor(ImGuiCol_ChildBg,ImVec4(.075f,.085f,.10f,1));ImGui::PushStyleColor(ImGuiCol_Border,ImVec4(.18f,.20f,.24f,1));
@@ -273,9 +280,9 @@ class Launcher final:public rex::ui::ImGuiDialog{
    draw->AddRect(p,q,selected?Col(.90f,.15f,.20f):Col(.22f,.24f,.28f),7,0,selected?2.f:1.f);
    ImVec2 rc(p.x+18,p.y+20);draw->AddCircle(rc,8,selected?Col(.95f,.25f,.30f):Col(.55f,.58f,.63f),20,1.6f);if(selected)draw->AddCircleFilled(rc,4.5f,Col(.95f,.25f,.30f),16);
    draw->PushClipRect(p,q,true);
-   PushSize(1);draw->AddText(ImVec2(p.x+34,p.y+8),ImGui::GetColorU32(ImGuiCol_Text),names[i]);ImGui::PopFont();
-   draw->AddText(ImVec2(p.x+34,p.y+33),ImGui::GetColorU32(kMuted),subs[i]);
-   draw->AddText(ImVec2(p.x+12,p.y+h-26),ImGui::GetColorU32(ImVec4(.85f,.86f,.89f,1)),descriptions[i]);
+   PushSize(1);FitText(draw,ImVec2(p.x+34,p.y+8),w-42,ImGui::GetColorU32(ImGuiCol_Text),names[i]);ImGui::PopFont();
+   FitText(draw,ImVec2(p.x+34,p.y+33),w-42,ImGui::GetColorU32(kMuted),subs[i]);
+   FitText(draw,ImVec2(p.x+12,p.y+h-26),w-20,ImGui::GetColorU32(ImVec4(.85f,.86f,.89f,1)),descriptions[i]);
    draw->PopClipRect();ImGui::PopID();if(i<2)ImGui::SameLine(0,gap);
   }
   ImGui::EndDisabled();EndCard();
@@ -427,18 +434,12 @@ class Launcher final:public rex::ui::ImGuiDialog{
   ImGui::Spacing();
   struct Item{const char* pt;const char* en;const char* es;};
   static const Item items[]={
-   {"Lutador criado aparece na seleção em cerca de 1,5 s (antes 4,4 s), sem queda de FPS.","Created fighters show up on fighter select in about 1.5 s (was 4.4 s), with no FPS drop.","Los luchadores creados aparecen en la selección en cerca de 1,5 s (antes 4,4 s), sin caída de FPS."},
-   {"As texturas do lutador criado ficam guardadas na pasta cache; da segunda vez ele carrega mais rápido.","Created fighter textures are kept in the cache folder; the second time they load faster.","Las texturas del luchador creado se guardan en la carpeta cache; la segunda vez cargan más rápido."},
-   {"O preview 3D do lutador criado não congela mais quando você passa rápido pela lista.","The created fighter 3D preview no longer freezes when you scroll quickly through the list.","La vista 3D del luchador creado ya no se congela al pasar rápido por la lista."},
-   {"Todas as cenas que o jogo baixava para 30 FPS, incluindo a entrada do lutador, agora rodam a 60 FPS na velocidade original.","Every scene the game dropped to 30 FPS, walkouts included, now runs at 60 FPS at its original speed.","Todas las escenas que el juego bajaba a 30 FPS, incluida la entrada del luchador, ahora van a 60 FPS a su velocidad original."},
-   {"A apresentação do locutor não fica mais presa esperando Start.","The announcer introduction no longer gets stuck waiting for Start.","La presentación del locutor ya no se queda esperando Start."},
-   {"Reborn: a aba CAF volta à seleção de lutador, só com os lutadores criados. Gatilhos: UFC, PRIDE, Aleatório, CAF.","Reborn: the CAF tab is back on fighter select, with only created fighters. Triggers: UFC, PRIDE, Random, CAF.","Reborn: la pestaña CAF vuelve a la selección de luchador, solo con los luchadores creados. Gatillos: UFC, PRIDE, Aleatorio, CAF."},
-   {"Reborn: correção para a capa da revista da Carreira que às vezes saía corrompida.","Reborn: fix for the Career magazine cover that sometimes came out corrupted.","Reborn: corrección para la portada de la revista de la Carrera que a veces salía corrupta."},
-   {"PRIDE: corrigido o fechamento do jogo ao carregar Liddell x Quarry.","PRIDE: fixed the crash when loading Liddell vs Quarry.","PRIDE: corregido el cierre del juego al cargar Liddell vs Quarry."},
-   {"As respostas das perguntas do primeiro início agora ficam salvas.","First-start answers are now saved.","Las respuestas del primer inicio ahora se guardan."},
-   {"Nova aba Correções no launcher, com o brilho da pele igual em todas as câmeras (opcional).","New Fixes tab in the launcher, with same skin lighting on every camera (optional).","Nueva pestaña Correcciones en el launcher, con el mismo brillo de piel en todas las cámaras (opcional)."},
-   {"Cheat novo: recompensa máxima ao aprender ou aperfeiçoar técnicas no modo Auto.","New cheat: maximum reward when learning or improving techniques in Auto mode.","Truco nuevo: recompensa máxima al aprender o mejorar técnicas en modo Auto."},
-   {"Launcher com visual novo. Logs e cheats vêm desligados.","New launcher look. Logs and cheats start off.","Launcher con aspecto nuevo. Registros y trucos vienen desactivados."},
+   {"Carreira e treino: lutadores criados e genéricos não ficam mais pretos ou com chuvisco na arena (Steam Deck, ROG Ally e placas AMD). O lutador criado continua montando rápido.","Career and training: created and generic fighters no longer turn black or into static in the arena (Steam Deck, ROG Ally and AMD graphics). Created fighters still build fast.","Carrera y entrenamiento: los luchadores creados y genéricos ya no salen negros o con estática en la arena (Steam Deck, ROG Ally y gráficas AMD). El luchador creado sigue montándose rápido."},
+   {"Apresentação antes da luta a 60 FPS de verdade: câmera fluida, sem rastro duplicando os lutadores, sem manchas nos holofotes da Carreira, boca do Bruce Buffer acompanhando a voz, na velocidade normal.","Pre-fight presentation at a true 60 FPS: smooth camera, no trail doubling the fighters, no blotches on the Career spotlights, Bruce Buffer's mouth in sync with his voice, at normal speed.","Presentación antes de la pelea a 60 FPS reales: cámara fluida, sin estela que duplique a los luchadores, sin manchas en los focos de la Carrera, la boca de Bruce Buffer sincronizada con su voz, a velocidad normal."},
+   {"Textos em português: a Carreira do Reborn não pisca mais entre dois textos nas trocas de menu, e o peso dos lutadores aparece como PESO (não PEDRA).","Portuguese texts: Reborn's Career no longer flickers between two texts on menu changes, and the fighters' weight label reads PESO (not PEDRA).","Textos en portugués: la Carrera de Reborn ya no parpadea entre dos textos al cambiar de menú, y el peso de los luchadores aparece como PESO (no PEDRA)."},
+   {"Painel para sair do jogo: F4 ou Back + Start segurados por 3 segundos.","Quit panel: F4, or Back + Start held for 3 seconds.","Panel para salir del juego: F4 o Back + Start mantenidos 3 segundos."},
+   {"O cache de texturas da versão anterior é descartado automaticamente; não é preciso apagar nada.","The texture cache from the previous version is discarded automatically; nothing needs to be deleted.","La caché de texturas de la versión anterior se descarta automáticamente; no hace falta borrar nada."},
+   {"Reborn 1.1: corrigido o fechamento do jogo ao carregar a Exibição peso-mosca na O2 Arena e em outras arenas (Windows e Linux).","Reborn 1.1: fixed the crash when loading a flyweight Exhibition at the O2 Arena and other arenas (Windows and Linux).","Reborn 1.1: corregido el cierre del juego al cargar una Exhibición de peso mosca en el O2 Arena y otras arenas (Windows y Linux)."},
   };
 
 
@@ -505,11 +506,12 @@ class Launcher final:public rex::ui::ImGuiDialog{
  float Hero(float width){
   auto* draw=ImGui::GetWindowDrawList();ImVec2 o=ImGui::GetCursorScreenPos();
   LoadHeaderArt();
-  const float height=200;
+  // Ally fix: the hero followed fixed sizes (200 px, ~48 px title) and took most of a short window.
+  const float height=std::floor(std::clamp(ImGui::GetIO().DisplaySize.y*.20f,140.f,200.f));
   draw->AddRectFilled(o,ImVec2(o.x+width,o.y+height),IM_COL32(12,6,8,255),8);
   if(art_&&art_h_>0){const float aw=art_w_*height/float(art_h_);const float left=std::max(0.f,width-aw);draw->AddImage(reinterpret_cast<ImTextureID>(art_.get()),ImVec2(o.x+left,o.y),ImVec2(o.x+width,o.y+height),ImVec2(left>0?0.f:(aw-width)/aw,0),ImVec2(1,1));}
   draw->AddRectFilledMultiColor(o,ImVec2(o.x+width*.62f,o.y+height),IM_COL32(10,10,13,245),IM_COL32(10,10,13,0),IM_COL32(10,10,13,0),IM_COL32(10,10,13,245));
-  PushSize(2);const float big=ImGui::GetFontSize()*1.7f;
+  PushSize(2);const float big=std::min(ImGui::GetFontSize()*1.7f,std::max(ImGui::GetFontSize(),std::min(width*.052f,height*.24f)));
   draw->AddText(ImGui::GetFont(),big,ImVec2(o.x+20,o.y+22),IM_COL32(248,248,250,255),L("Sua próxima luta","Your next fight","Tu próxima pelea"));
   draw->AddText(ImGui::GetFont(),big,ImVec2(o.x+20,o.y+22+big*1.05f),IM_COL32(248,248,250,255),L("começa aqui.","starts here.","empieza aquí."));ImGui::PopFont();
   ImGui::SetCursorScreenPos(ImVec2(o.x+20,o.y+height-ImGui::GetFrameHeight()-18));LanguageCombo();
@@ -572,6 +574,11 @@ class Launcher final:public rex::ui::ImGuiDialog{
   if(!running){auto now=settings_.Text();if(now!=saved_){Guard([&]{settings_.Save(installation_.game);saved_=now;});}}
   // Cheats are read by the running game from cheats.ini, so they are written even while it runs.
   {auto cheats=CheatsText(settings_);if(cheats!=saved_cheats_){Guard([&]{AtomicText(CheatsFile(),cheats);saved_cheats_=cheats;});}}
+  // Ally fix: the launcher was laid out for ~1350x990; in a smaller window (Steam Deck/Ally game mode,
+  // a small desktop window) the fixed 16/21/28 px fonts looked too big and text spilled out of the
+  // boxes. Fonts now shrink with the window (never grow, never below 78%). Boxes keep their sizes, so
+  // smaller text can only fit better.
+  ImGui::GetStyle().FontScaleMain=std::clamp(std::min(io.DisplaySize.x/1350.f,io.DisplaySize.y/990.f),.78f,1.f);
   ImGui::SetNextWindowPos(ImVec2(0,0),ImGuiCond_Always);ImGui::SetNextWindowSize(io.DisplaySize,ImGuiCond_Always);
   ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding,0);ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding,ImVec2(0,0));ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing,ImVec2(10,8));
   ImGui::PushStyleColor(ImGuiCol_WindowBg,ImVec4(.047f,.051f,.063f,1));
@@ -587,7 +594,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
   const float side=24,content_x=sidebar+side,content_w=io.DisplaySize.x-sidebar-2*side;
   ImGui::SetCursorPos(ImVec2(content_x,kTopBar+18));
   ImGui::PushStyleVar(ImGuiStyleVar_FramePadding,ImVec2(10,7));
-  ImGui::BeginChild("LauncherBody",ImVec2(content_w,std::max(120.f,io.DisplaySize.y-kTopBar-18-86)),ImGuiChildFlags_None,ImGuiWindowFlags_NoBackground|(tab_==0?ImGuiWindowFlags_NoScrollbar:0));
+  ImGui::BeginChild("LauncherBody",ImVec2(content_w,std::max(120.f,io.DisplaySize.y-kTopBar-18-86)),ImGuiChildFlags_None,ImGuiWindowFlags_NoBackground);  // Ally fix: Home scrolls too (its last card was cut in a short window)
   switch(tab_){
    case 0:Home();break;
    case 1:Video();BeginCard("InputCard",ImVec2(0,0));CardTitle(L("Teclado e controle","Keyboard and controller","Teclado y mando"),nullptr);Keyboard();EndCard();PrecompileCard();break;

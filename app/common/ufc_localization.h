@@ -50,14 +50,29 @@ inline std::string MergeNames(const std::string& english,const std::string& tran
   static const char16_t* id[]={u"ID ONLINE",u"ID ONLINE",u"ID EN LIGNE",u"ID ONLINE",u"ONLINE-ID"};
   static const char16_t* invite[]={u"<&L3_LS> Receber convites",u"<&L3_LS> Recibir invitaciones",u"<&L3_LS> Recevoir les invitations",u"<&L3_LS> Ricevi inviti",u"<&L3_LS> Einladungen empfangen"};
   static const char16_t* fly[]={u"PESO-MOSCA",u"PESO MOSCA",u"POIDS MOUCHES",u"PESI MOSCA",u"FLIEGENGEWICHT"};
+  // BETA 1.8: the pre-fight tale of the tape labels the weight with key 0x335F914E of group 0x687720AC, which is
+  // "STONE" in the English table; the official Portuguese table translated it literally as "PEDRA".
+  if(language==1)put(0x687720AC,0x335F914E,Utf16(u"PESO"));
   put(0x69772238,0x00E3286E,Utf16(skip[i]));put(0x69772238,0x208BC8C7,Utf16(attire[i]));put(0x69772238,0x1A57EA5E,Utf16(id[i]));put(0x69772238,0x5AC63877,Utf16(invite[i]));put(0x5A770ADD,0xF17E0001,Utf16(fly[i]));
  }
  auto result=Serialize(target);if(Parse(result)!=target)throw std::runtime_error("Falha ao verificar os textos preservados.");return result;
 }
 
 }
+// BETA 1.8 (Original edition, Portuguese): the Original reads the game's own Portuguese tables, whose tale of the
+// tape labels the weight "PEDRA" (key 0x335F914E of group 0x687720AC is "STONE" in English, translated literally).
+// Only that label is changed, in a copy of the Portuguese generic.ytx; nothing else of the table is touched.
+inline fs::path PrepareOriginalWeightLabel(const fs::path& game){auto translated=game/"DAT/ytx/PT/generic.ytx";auto output=Storage(game)/"localization"/"PT"/"generic-original.ytx";
+ auto fingerprints=Hash(translated)+"\noriginal-weight-label=1\n";auto metadata=output;metadata+=".sources";if(fs::is_regular_file(output)&&ReadText(metadata)==fingerprints)return output;
+ auto groups=ytx::Parse(ReadText(translated));auto g=std::find_if(groups.begin(),groups.end(),[](const ytx::Group& x){return x.id==0x687720AC;});
+ if(g==groups.end())throw std::runtime_error("Grupo do rotulo de peso ausente.");
+ auto t=std::find_if(g->strings.begin(),g->strings.end(),[](const ytx::Text& v){return v.id==0x335F914E;});
+ if(t==g->strings.end())throw std::runtime_error("Rotulo de peso ausente.");
+ t->bytes=ytx::Utf16(u"PESO");auto result=ytx::Serialize(groups);if(ytx::Parse(result)!=groups)throw std::runtime_error("Falha ao verificar o rotulo de peso.");
+ AtomicText(output,result);AtomicText(metadata,fingerprints);return output;
+}
 inline fs::path PrepareLocalizedNames(const fs::path& game,int language){if(language<=0||language>=6)return {};auto code=LanguageCodes[language];auto english=game/"DAT/ytx/EN/generic.ytx",translated=game/"DAT/ytx"/code/"generic.ytx";auto output=Storage(game)/"localization"/code/"generic.ytx";
- auto fingerprints=Hash(english)+"\n"+Hash(translated)+"\nformat=2\n";auto metadata=output;metadata+=".sources";if(fs::is_regular_file(output)&&ReadText(metadata)==fingerprints)return output;
+ auto fingerprints=Hash(english)+"\n"+Hash(translated)+"\nformat=3\n";auto metadata=output;metadata+=".sources";if(fs::is_regular_file(output)&&ReadText(metadata)==fingerprints)return output;
  auto result=ytx::MergeNames(ReadText(english),ReadText(translated),language);AtomicText(output,result);AtomicText(metadata,fingerprints);return output;
 }
 }

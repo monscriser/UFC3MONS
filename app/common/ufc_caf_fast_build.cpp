@@ -1,5 +1,5 @@
 // Created fighters (CAF) appear sooner on SELECT FIGHTER and wherever the game builds
-// their textures (--ufc_caf_fast_build, default on; false = the original pace).
+// their textures (--ufc_caf_fast_build; on by default again from the Ally fixes, see below).
 //
 // Measured on the Original v48 build (10/11/2026): the created fighter's 3D preview took
 // ~4.4 s against ~0.3 s for a roster fighter, with no file reads, idle CPU and 60 fps.
@@ -9,9 +9,11 @@
 // It advances one stage per call and its caller (sub_827F6380) reaches it every other
 // frame, so each texture costs ~18 frames and a created fighter has seven of them.
 //
-// With the option on, stages 0..5 run back to back in the same call; stage 6 keeps its
-// original per-call wait, so the GPU result is still ready before compression. The GPU
-// executes the passes in order, so the textures come out the same, only in fewer frames.
+// With the option on, stages 0..5 are chained in the same call; stage 6 keeps its
+// original per-call wait, so the GPU result is still ready before compression. Since
+// BETA 1.8 the chaining still waits a few render frames at the two GPU-work boundaries
+// (after stage 0 and after stage 1; see ufc_caf_settle_frames), which the game's empty
+// stages 2..4 used to provide.
 #include "ufc3_init.h"
 #include <rex/cvar.h>
 #include <rex/logging.h>
@@ -28,9 +30,24 @@
 #include <vector>
 #include <rex/filesystem.h>
 
+// ufc_caf_compress_now, ufc_caf_prefetch_parts and ufc_caf_texture_cache stay on by default.
+constexpr bool kCafOptimizationsDefault = true;
+
+// ufc_caf_fast_build (issues #25/#26). Re-measured on the ROG Ally (Linux, Reborn, Z1 Extreme, 18/11/2026)
+// with each piece ALONE, created fighter (Career) checked in the cage intro:
+//   chaining the builder stages only (parts off, model_updates=1) ..... correct
+//   resolving several parts per call only (chain off, model_updates=1)  correct
+//   chain + parts (model_updates=1) .................................... correct (CAF and generic fighters)
+//   repeated model updates only (chain off, parts off) ................. fighter completely BLACK
+// The BETA 1.8 tests A..H always removed one piece and kept the other two, so the model updates were
+// in every broken build. They advance the model past state 8 (textures) to 10..12 within one frame,
+// while the last texture's DXT compression job may still be waiting in the render-thread queue for the
+// next frame (it runs at once only within the frame budget): the model then finishes with an empty
+// texture. So fast build is back ON; the model loop below now repeats only its two polls and never runs 10..12
+// in the same frame (see the sub_827E7220 hook).
 REXCVAR_DEFINE_BOOL(ufc_caf_fast_build, true, "UFC",
                     "Build created-fighter textures without the one-stage-per-call pacing");
-REXCVAR_DEFINE_BOOL(ufc_caf_compress_now, true, "UFC",
+REXCVAR_DEFINE_BOOL(ufc_caf_compress_now, kCafOptimizationsDefault, "UFC",
                     "Compress a finished created-fighter texture at once instead of on the next frame");
 REXCVAR_DEFINE_INT32(ufc_caf_model_updates, 64, "UFC",
                       "Created-fighter model updates per call while it waits for parts or textures (1 = original)");
@@ -40,6 +57,11 @@ REXCVAR_DEFINE_INT32(ufc_caf_frame_budget_us, 2000, "UFC",
                       "Extra created-fighter build work allowed per call, in microseconds; keeps the frame rate");
 REXCVAR_DEFINE_BOOL(ufc_caf_fast_build_log, false, "Tests",
                     "Log each created-fighter texture builder call");
+// The parts of ufc_caf_fast_build, to isolate them (all on = ufc_caf_fast_build as a whole).
+REXCVAR_DEFINE_BOOL(ufc_caf_fast_build_chain, true, "Tests",
+                    "Fast build: chain texture builder stages within one call");
+REXCVAR_DEFINE_BOOL(ufc_caf_fast_build_parts, true, "Tests",
+                    "Fast build: resolve several created-fighter parts per call");
 
 // Frame-rate guard: every extra step below (beyond the game's own call) runs only while the
 // outermost hooked call on this thread is within ufc_caf_frame_budget_us. On a slower PC the
@@ -87,12 +109,64 @@ thread_local bool tl_compressed_now = false;
 thread_local uint32_t tl_builder_item = 0;       // texture item the builder is working on
 thread_local uint32_t tl_compress_item = 0;      // item of a compress job run at once
 std::atomic<uint32_t> g_queued_compress_item{0};  // item of the last compress job queued
+// Render-thread frames: the job queue below runs once per frame.
+std::atomic<uint64_t> g_render_frames{0};
 }  // namespace
 extern "C" void __imp__sub_82749490(PPCContext& ctx, uint8_t* base);
 REX_HOOK_RAW(sub_82749490) {
   g_queue_thread.store(std::this_thread::get_id(), std::memory_order_relaxed);
+  g_render_frames.fetch_add(1, std::memory_order_relaxed);
   __imp__sub_82749490(ctx, base);
 }
+
+// BETA 1.8 fix for issues #25 / #26 (created and generic fighters black / "TV static" in
+// arena fights and training, fine in menus; Steam Deck and Radeon 680M, not on NVIDIA).
+// In sub_827F3108 only stages 0, 1, 5 and 6 do work: 0 and 1 issue the composite passes,
+// 2, 3 and 4 do nothing but advance the stage, 5 issues the final pass and clears the done
+// flag (+2600) that stage 6 polls. The empty stages are the game's own delay (about six
+// frames) between the composite passes and the final pass, and stage 1 is reached two
+// frames after stage 0. Chaining every stage in one call (and the model updates that call
+// the builder again within the frame) removed that delay, so on a GPU that falls behind
+// (arena load, slower iGPU) the final pass consumed composites that were not finished.
+// Fast build keeps chaining, but each GPU-work boundary now waits for real render frames:
+// 2 frames after stage 0 is left (the game's own spacing) and ufc_caf_settle_frames after
+// stage 1 is left (6 = the game's three empty stages; the reporter's Deck ran the arena at
+// 42 fps with the GPU behind, so the margin is kept rather than cut to the frames in flight).
+REXCVAR_DEFINE_INT32(ufc_caf_settle_frames, 6, "UFC",
+                     "Render frames a created-fighter texture waits between its composite passes and its final pass");
+namespace {
+struct Settle {
+  uint64_t frame = 0;
+  uint32_t need = 0;
+};
+std::mutex g_settle_mutex;
+std::unordered_map<uint32_t, Settle> g_settle;  // texture item -> last GPU-work stage end
+void SettleMark(uint32_t item, uint32_t need) {
+  std::lock_guard<std::mutex> lock(g_settle_mutex);
+  if (g_settle.size() > 512) g_settle.clear();
+  g_settle[item] = {g_render_frames.load(std::memory_order_relaxed), need};
+}
+void SettleForget(uint32_t item) {
+  std::lock_guard<std::mutex> lock(g_settle_mutex);
+  g_settle.erase(item);
+}
+// False while the item must not enter `stage` yet (stages 1..5 only).
+bool SettleOpen(uint32_t item, uint32_t stage) {
+  if (stage == 0 || stage > 5) return true;
+  std::lock_guard<std::mutex> lock(g_settle_mutex);
+  const auto it = g_settle.find(item);
+  if (it == g_settle.end()) return true;
+  return g_render_frames.load(std::memory_order_relaxed) - it->second.frame >= it->second.need;
+}
+// Records the end of a GPU-work stage when a call moved the item past it.
+void SettleAfterCall(uint32_t item, uint32_t before, uint32_t after) {
+  if (after == before) return;
+  if (before == 0 && after >= 1) SettleMark(item, 2);
+  else if (before == 1 && after >= 2)
+    SettleMark(item, uint32_t(std::clamp(REXCVAR_GET(ufc_caf_settle_frames), 0, 60)));
+  else if (after >= 6 || after < before) SettleForget(item);
+}
+}  // namespace
 extern "C" void __imp__sub_8279C6C8(PPCContext& ctx, uint8_t* base);
 extern "C" void __imp__sub_8279D358(PPCContext& ctx, uint8_t* base);
 extern "C" void __imp__sub_82794378(PPCContext& ctx, uint8_t* base);
@@ -128,6 +202,13 @@ REX_HOOK_RAW(sub_827F3108) {
   constexpr uint32_t kStage = 1792, kIndex = 1788, kWaitStage = 6, kMaxSteps = 8;
   const uint32_t self = ctx.r3.u32, mode = ctx.r4.u32;
   const uint32_t first_stage = REX_LOAD_U32(self + kStage);
+  const bool fast = REXCVAR_GET(ufc_caf_fast_build);
+  // A stage that must still wait for the GPU (see SettleOpen): return "not done" without
+  // running it, as the game's own empty stages would. The next call looks again.
+  if (fast && REX_LOAD_U32(self + kIndex) == 0 && !SettleOpen(self, first_stage)) {
+    ctx.r3.u64 = 0;
+    return;
+  }
   // Keep the caller's non-volatile view intact: the original only uses r3/r4 as inputs.
   PPCContext entry = ctx;
   BudgetScope budget;
@@ -137,8 +218,9 @@ REX_HOOK_RAW(sub_827F3108) {
   tl_in_builder = true;
   tl_compressed_now = false;
   __imp__sub_827F3108(ctx, base);
+  if (fast) SettleAfterCall(self, first_stage, REX_LOAD_U32(self + kStage));
   uint32_t steps = 1;
-  if (REXCVAR_GET(ufc_caf_fast_build)) {
+  if (fast && REXCVAR_GET(ufc_caf_fast_build_chain)) {
     while (steps < kMaxSteps && ctx.r3.u32 == 0 && BudgetLeft()) {
       const uint32_t stage = REX_LOAD_U32(self + kStage);
       // Composite stages (1..5 reached from 0..4) are chained; stage 6 is called again
@@ -147,11 +229,13 @@ REX_HOOK_RAW(sub_827F3108) {
       const bool composite = stage != 0 && stage < kWaitStage;
       const bool collect = stage == kWaitStage && tl_compressed_now;
       if (!(composite || collect) || REX_LOAD_U32(self + kIndex) != 0) break;
+      if (!SettleOpen(self, stage)) break;
       tl_compressed_now = false;
       ctx = entry;
       ctx.r3.u64 = self;
       ctx.r4.u64 = mode;
       __imp__sub_827F3108(ctx, base);
+      SettleAfterCall(self, stage, REX_LOAD_U32(self + kStage));
       ++steps;
     }
   }
@@ -168,7 +252,7 @@ REX_HOOK_RAW(sub_827F3108) {
 // kept: the loop below only repeats while the index moves forward.
 extern "C" void __imp__sub_827F8BF0(PPCContext& ctx, uint8_t* base);
 extern "C" void __imp__sub_827F8B28(PPCContext& ctx, uint8_t* base);
-REXCVAR_DEFINE_BOOL(ufc_caf_prefetch_parts, true, "UFC",
+REXCVAR_DEFINE_BOOL(ufc_caf_prefetch_parts, kCafOptimizationsDefault, "UFC",
                     "Request all of a created fighter's parts at once instead of one after the other");
 namespace {
 // sub_827F8B28(list, index) requests part `index` (its lookup first reuses an existing
@@ -201,7 +285,7 @@ REX_HOOK_RAW(sub_827F8BF0) {
   BudgetScope budget;
   __imp__sub_827F8BF0(ctx, base);
   uint32_t steps = 1;
-  if (REXCVAR_GET(ufc_caf_fast_build)) {
+  if (REXCVAR_GET(ufc_caf_fast_build) && REXCVAR_GET(ufc_caf_fast_build_parts)) {
     uint32_t index = REX_LOAD_U32(self + 8);
     uint32_t previous = first;
     // Each part is a read that the game's file thread (sub_822D2678) finishes a few
@@ -259,25 +343,25 @@ REX_HOOK_RAW(sub_827E7220) {
     return (driver ? REX_LOAD_U32(driver + 76) : 0) * 1024 + (parts ? REX_LOAD_U32(parts + 8) : 0);
   };
   uint32_t last_state = REX_LOAD_U32(self + kState), last_counter = driver_counter();
+  // Ally fix (18/11/2026): repeat only the two polls (5 = parts, 8 = textures) and stop as soon as
+  // the state changes or a call made no progress. The BETA 1.7/1.8 loop also chained 7 and 10..12 in
+  // the same frame: the model finished (10..12) before the last texture's DXT compression job had run
+  // in the render-thread queue, and the fighter came out black (Ally: model updates alone = black).
+  // Validated on the Ally with an injected prototype of this loop + chain + parts: created fighter
+  // correct in the cage, texture build mean 0.498 -> 0.309 s, median 0.333 -> 0.213 s.
+  (void)deadline;
+  (void)last_state;
   while (calls < limit && BudgetLeft()) {
     const uint32_t state = REX_LOAD_U32(self + kState);
-    // 7 creates the texture driver (one shot), 10..12 finish the model (one shot or a poll).
-    const bool repeat = state == kParts || state == 7 || state == kTextures || (state >= 10 && state <= 12);
-    if (!repeat) break;
-    const uint32_t counter = driver_counter();
-    const bool progress = state != last_state || counter != last_counter;
-    if (!progress && calls > 1) {
-      if (state != kTextures && state != kParts) break;
-      const bool extra_wait = std::chrono::steady_clock::now() < deadline;
-      if (!extra_wait && !WaitForRead()) break;
-      if (extra_wait) std::this_thread::sleep_for(std::chrono::microseconds(250));
-    }
-    last_state = state;
-    last_counter = counter;
+    if (state != kParts && state != kTextures) break;
     ctx = entry;
     ctx.r3.u64 = self;
     __imp__sub_827E7220(ctx, base);
     ++calls;
+    if (REX_LOAD_U32(self + kState) != state) break;  // the next state runs at the next update
+    const uint32_t counter = driver_counter();
+    if (counter == last_counter) break;  // nothing new: wait for the next frame, as the game does
+    last_counter = counter;
   }
   const uint32_t after = REX_LOAD_U32(self + kState);
   if (REXCVAR_GET(ufc_caf_fast_build_log) && after != before)
@@ -325,7 +409,7 @@ REX_HOOK_RAW(sub_828F6E08) {
 }
 
 // ---------------------------------------------------------------------------------------
-// Created-fighter texture cache (--ufc_caf_texture_cache, default on).
+// Created-fighter texture cache (--ufc_caf_texture_cache).
 //
 // Each finished CAF texture is compressed to DXT5 by the game's GPU compressor, one call of
 // sub_82793B10 per mip level inside the job sub_82794378. Under emulation each call waits
@@ -339,14 +423,16 @@ REX_HOOK_RAW(sub_828F6E08) {
 // of its layers (48-byte elements: image ids, colours, flags), so any change to the fighter's
 // look gives a new key. Misses compress normally and store the result (memory + disk).
 // --ufc_caf_texture_cache_verify compresses on hits too and compares, for testing.
-REXCVAR_DEFINE_BOOL(ufc_caf_texture_cache, true, "UFC",
+REXCVAR_DEFINE_BOOL(ufc_caf_texture_cache, kCafOptimizationsDefault, "UFC",
                     "Reuse finished created-fighter textures (memory and disk) instead of compressing them again");
 REXCVAR_DEFINE_BOOL(ufc_caf_texture_cache_verify, false, "Tests",
                     "On a created-fighter texture cache hit, also compress normally and compare");
 REXCVAR_DEFINE_STRING(ufc_caf_texture_cache_dir, "", "UFC",
                       "Folder of the created-fighter texture cache (default: cache/caf-textures next to the executable)");
 namespace {
-constexpr uint32_t kCacheVersion = 1;
+// 2 (BETA 1.8): entries written by BETA 1.7 may hold corrupted textures (#25/#26) or be
+// stored under another texture's key (queued-job race below); they are never read again.
+constexpr uint32_t kCacheVersion = 2;
 std::mutex g_cache_mutex;
 uint64_t g_cache_hits = 0, g_cache_misses = 0, g_cache_mismatches = 0;
 
@@ -470,7 +556,12 @@ void CacheStore(uint64_t key, std::vector<uint8_t> data, bool confirmed) {
 
 extern "C" void __imp__sub_82793B10(PPCContext& ctx, uint8_t* base);
 REX_HOOK_RAW(sub_82793B10) {
-  const uint32_t item = tl_compress_item ? tl_compress_item : g_queued_compress_item.load();
+  // Only a job run at once by ufc_caf_compress_now knows its texture item for sure. For a
+  // queued job, g_queued_compress_item holds the item of the LAST job queued: with two
+  // fighters loading, several jobs are queued before the queue runs, and caching under that
+  // item would key (and persist) one texture under another's key. Queued jobs compress as
+  // in the game and are not cached.
+  const uint32_t item = tl_compress_item;
   const uint32_t level = ctx.r30.u32, frame = ctx.r1.u32, dst_desc = ctx.r6.u32;
   const uint32_t address = GuestPointer(frame) ? REX_LOAD_U32(frame + 236) : 0;
   const uint32_t size = GuestPointer(dst_desc) ? REX_LOAD_U32(dst_desc + 24) : 0;
@@ -501,6 +592,17 @@ REX_HOOK_RAW(sub_82793B10) {
   }
   __imp__sub_82793B10(ctx, base);
   std::vector<uint8_t> result(host, host + size);
+  // A level made of one repeated 16-byte DXT5 block (e.g. all black: the #25/#26 limbs) is
+  // what an unfinished composite compresses to. Never keep it: two such builds would
+  // otherwise confirm it and the cache would serve it from then on.
+  bool uniform = true;
+  for (uint32_t i = 16; i < size && uniform; ++i) uniform = result[i] == result[i % 16];
+  if (uniform) {
+    if (REXCVAR_GET(ufc_caf_fast_build_log) || verify)
+      REXLOG_INFO("[ufc-caf-cache] uniform level not cached key={:016x} item=0x{:08X} level={} size={}", key,
+                  item, level, size);
+    return;
+  }
   size_t differing = 0;
   if (known)
     for (uint32_t i = 0; i < size; ++i) differing += result[i] != entry.data[i];

@@ -2,8 +2,9 @@
 set -euo pipefail
 
 kit=/mnt/c/UFC3MONS-Kit
-build=/mnt/c/Users/Monscriser/Documents/Codex/2026-11-09/o-zip-inclui-o-c-digo/work/technique-cheat/build-tree/build
-out=${1:-/mnt/c/Users/Monscriser/Documents/Codex/2026-11-09/o-zip-inclui-o-c-digo/outputs/UFC3MONS-BETA1.7-Linux-x86_64.AppImage}
+build_tree=${UFC3_BUILD_TREE:-/mnt/c/Users/Monscriser/Documents/Codex/2026-11-09/o-zip-inclui-o-c-digo/work/technique-cheat/build-tree}
+build="$build_tree/build"
+out=${1:-"$PWD/UFC3MONS-BETA1.7-Linux-x86_64.AppImage"}
 base="$kit/saida/UFC3MONS-BETA1.6-Memexport-Candidata-Linux-x86_64.AppImage"
 offset=944632
 
@@ -25,7 +26,7 @@ from pathlib import Path
 p = Path(sys.argv[1])
 s = p.read_text(encoding="utf-8")
 old = "Name=UFC3MONS BETA 1.6 Memexport (Candidata)\n"
-new = "Name=UFC3MONS BETA 1.6\n"
+new = "Name=UFC3MONS BETA 1.7\n"
 if s.count(old) != 1:
     raise SystemExit("Unexpected AppImage desktop name")
 p.write_text(s.replace(old, new, 1), encoding="utf-8")

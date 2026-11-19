@@ -1,0 +1,24 @@
+--- "/home/monscriser/ufc3build/gpuroot/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/gpu-port-blood/tex_cache.cpp.orig"	2026-11-18 17:02:04.761481008 -0300
++++ "/home/monscriser/ufc3build/gpuroot/mnt/e/PROJETOS ANTIGOS/UFC3MONS-trabalho/gpu-port-blood/tex_cache.cpp"	2026-11-18 17:22:16.417957103 -0300
+@@ -1131,3 +1131,21 @@
+ }
+ 
+ }  // namespace rex::graphics
++
++// UFC3MONS PGO training: the game ends with _Exit (no atexit), so an instrumented build writes its
++// profile from a timer instead: UFC_PGO_DUMP_SECS=N writes it every N seconds. No-op in normal builds.
++#include <cstdlib>
++#include <thread>
++extern "C" int __llvm_profile_write_file(void) __attribute__((weak));
++namespace {
++struct UfcPgoDumper {
++  UfcPgoDumper() {
++    const char* e = std::getenv("UFC_PGO_DUMP_SECS");
++    if (!e || !__llvm_profile_write_file) return;
++    const int secs = std::max(1, std::atoi(e));
++    std::thread([secs] {
++      for (;;) { std::this_thread::sleep_for(std::chrono::seconds(secs)); __llvm_profile_write_file(); }
++    }).detach();
++  }
++} ufc_pgo_dumper;
++}  // namespace

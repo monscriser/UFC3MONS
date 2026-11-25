@@ -67,6 +67,23 @@ REXCVAR_DEFINE_BOOL(ufc_cutscene_60_walkout_step, true, "Tests",
 extern "C" void __imp__sub_8273B540(PPCContext& ctx, uint8_t* base);
 extern "C" void __imp__sub_822B7E10(PPCContext& ctx, uint8_t* base);
 extern "C" void __imp__sub_82748DC8(PPCContext& ctx, uint8_t* base);
+extern "C" void __imp__sub_822222F8(PPCContext& ctx, uint8_t* base);
+extern "C" void __imp__sub_82222FB0(PPCContext& ctx, uint8_t* base);
+
+// Identify which use of the shared presentation object coincides with a slow interval.
+REX_HOOK_RAW(sub_822222F8) {
+  if (REXCVAR_GET(ufc_cutscene_60_log)) {
+    REXLOG_INFO("[ufc-presentation] begin object={:08X} caller={:08X} type={} variant={}",
+                ctx.r3.u32, uint32_t(ctx.lr), ctx.r4.u32, ctx.r5.u32);
+  }
+  __imp__sub_822222F8(ctx, base);
+}
+REX_HOOK_RAW(sub_82222FB0) {
+  if (REXCVAR_GET(ufc_cutscene_60_log)) {
+    REXLOG_INFO("[ufc-presentation] end object={:08X} caller={:08X}", ctx.r3.u32, uint32_t(ctx.lr));
+  }
+  __imp__sub_82222FB0(ctx, base);
+}
 
 namespace {
 constexpr uint32_t kBlock = 0x833C80B8;
@@ -107,6 +124,9 @@ void KeepFullRate(PPCContext& ctx, uint8_t* base) {
 //   burst <n> <prefix> capture n consecutive presented frames to <prefix>NN.ppm (written after the last)
 //   dump <index>       log 0x300 bytes of that object
 #ifdef UFC_CS60_DIAG
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <rex/system/kernel_state.h>
 #include <rex/runtime.h>
 #include <rex/graphics/graphics_system.h>
@@ -531,10 +551,16 @@ REX_HOOK_RAW(sub_822890B0) {
     if (!StandaloneEffect(base, obj)) { __imp__sub_822890B0(ctx, base); return; }  // characters: smooth
     if (!t_whole_now) { ctx.f1.f64 = 0.0; __imp__sub_822890B0(ctx, base); return; }  // the game rewrites pose k+1
     ctx.f1.f64 = double(float(ctx.f1.f64 / factor));
+    // At low frame rates the game writes the final pose directly. Avoid
+    // reading a snapshot we will never interpolate.
+    if (factor > 0.75f) {
+      __imp__sub_822890B0(ctx, base);
+      return;
+    }
     BonePose before[kMaxLerpBones], after[kMaxLerpBones];
     const int n = ReadBonePoses(base, obj, before);
     __imp__sub_822890B0(ctx, base);
-    if (n && factor <= 0.75f && ReadBonePoses(base, obj, after) == n && !BoneCut(before[0], after[0]))
+    if (n && ReadBonePoses(base, obj, after) == n && !BoneCut(before[0], after[0]))
       WriteBoneLerp(base, obj, before, after, n);
     return;
   }
@@ -601,6 +627,37 @@ REX_HOOK_RAW(sub_822890B0) {
   t_in_effect = prev; t_eff_scaled = ps; t_eff_full = pf;
 }
 REX_HOOK_RAW(sub_82EFCAC0) {
+#ifdef UFC_CS60_DIAG
+  // DIAG #24 (flyweight crashes): sub_82EFCAC0 is memcpy(r3 dst, r4 src, r5 size). Log the guest call chain of
+  // a copy to a null destination or with an absurd size (the reported crashes write to guest 0).
+  if ((ctx.r3.u32 < 0x10000u && ctx.r5.u32 != 0) || ctx.r5.u32 > 0x4000000u) {
+    static std::atomic<int> logged{0};
+    if (logged.fetch_add(1) < 20) {
+      REXLOG_WARN("[ufc-memcpy-bad] dst={:08X} src={:08X} size={:08X} lr={:08X} r1={:08X}", ctx.r3.u32, ctx.r4.u32,
+                  ctx.r5.u32, uint32_t(ctx.lr), ctx.r1.u32);
+      auto dump = [&](const char* what, uint32_t at) {
+        if (at < 0x40000000u || at >= 0xC0000000u) return;
+        std::string out;
+        for (uint32_t k = 0; k < 0x40; k += 4) { char w[12]; std::snprintf(w, sizeof(w), " %08X", REX_LOAD_U32(at + k)); out += w; }
+        REXLOG_WARN("[ufc-memcpy-bad] {} {:08X}:{}", what, at, out);
+      };
+      dump("r26", ctx.r26.u32); dump("r31", ctx.r31.u32); dump("r31-0x40", ctx.r31.u32 - 0x40);
+#ifdef _WIN32
+      {
+        void* frames[40];
+        const unsigned n = RtlCaptureStackBackTrace(0, 40, frames, nullptr);
+        const auto module = reinterpret_cast<uintptr_t>(GetModuleHandleW(nullptr));
+        std::string host;
+        for (unsigned k = 0; k < n; ++k) { char w[24]; std::snprintf(w, sizeof(w), " %llx", (unsigned long long)(reinterpret_cast<uintptr_t>(frames[k]) - module)); host += w; }
+        REXLOG_WARN("[ufc-memcpy-bad] host_rva:{}", host);
+      }
+#endif
+      REXLOG_WARN("[ufc-memcpy-bad] r24={:08X} r25={:08X} r26={:08X} r29={:08X} r30={:08X} r31={:08X}", ctx.r24.u32, ctx.r25.u32,
+                  ctx.r26.u32, ctx.r29.u32, ctx.r30.u32, ctx.r31.u32);
+
+    }
+  }
+#endif
   const int prev = t_in_effect;
   EffectStep(ctx, 1);
   t_in_effect = 0;  // nested calls see their own arguments

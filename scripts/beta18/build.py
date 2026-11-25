@@ -177,13 +177,28 @@ QUIT_PATCHES = (
 )
 REPO_QUIT_SOURCE = Path(__file__).resolve().parents[2] / "app/common/ufc_quit_panel.cpp"
 # Ally fixes: these units come from the repository app/common (not from the P14 tree).
-REPO_UNITS = {u: Path(__file__).resolve().parents[2] / f"app/common/{u}.cpp" for u in ("ufc_caf_fast_build", "ufc_quit_panel", "ufc_shm_unlink", "ufc_cutscene_60", "ufc_caf_thumb", "ufc_pgo_dump")}
+REPO_UNITS = {u: Path(__file__).resolve().parents[2] / f"app/common/{u}.cpp" for u in ("ufc_caf_fast_build", "ufc_quit_panel", "ufc_shm_unlink", "ufc_cutscene_60", "ufc_caf_thumb", "ufc_pgo_dump", "ufc_model_guard")}
 
 # BETA 1.8 PGO: extra flags for every compile (UFC_EXTRA_CXXFLAGS) and link (UFC_EXTRA_LDFLAGS) this script runs.
 EXTRA_CXX = shlex.split(os.environ.get("UFC_EXTRA_CXXFLAGS", "")) if "shlex" in globals() else []
 EXTRA_LD = shlex.split(os.environ.get("UFC_EXTRA_LDFLAGS", "")) if "shlex" in globals() else []
 
 def run(args, cwd, log):
+    reuse = os.environ.get("UFC_REPEAT_GUARD_DIAG_OBJECTS")
+    if reuse and "-c" in args:
+        target = Path(args[args.index("-o") + 1])
+        rebuild = {unit + target.suffix for unit in ("ufc_model_guard", "fps_overlay")}
+        if os.environ.get("UFC_REPEAT_GUARD_DIAG_MAIN") == "1":
+            rebuild.add("main" + target.suffix)
+        if os.environ.get("UFC_REPEAT_GUARD_DIAG_LANGUAGE") == "1":
+            rebuild.add("ufc_language" + target.suffix)
+        if os.environ.get("UFC_REPEAT_GUARD_DIAG_UI") == "1":
+            rebuild.add("ufc_launcher_ui" + target.suffix)
+        if os.environ.get("UFC_REPEAT_GUARD_DIAG_CUTSCENE") == "1":
+            rebuild.add("ufc_cutscene_60" + target.suffix)
+        if target.name not in rebuild:
+            shutil.copyfile(Path(reuse) / target.name, target)
+            return
     if args and args[0].endswith("clang++") and (EXTRA_CXX or EXTRA_LD):
         args = list(args) + (EXTRA_CXX if "-c" in args else EXTRA_LD)
     with open(log, "w") as f:
@@ -235,6 +250,14 @@ def build(name, control):
         for old in (CLASS_OLD, CLOSE_OLD, POST_OLD, FIN_OLD, PRE_OLD):
             if text.count(old) != 1: sys.exit(f"anchor not found once in {src}: {old[:40]}")
         text = text.replace(FONT_OLD, FONT_NEW).replace(CLASS_OLD, CLASS_NEW).replace(CLOSE_OLD, CLOSE_NEW).replace(POST_OLD, POST_NEW).replace(FIN_OLD, FIN_NEW).replace(PRE_OLD, PRE_NEW)
+        if "reborn" in name:
+            isolated_paths = 'if(!rex::cvar::GetFlagByName("ufc_test_input_file").empty()) {'
+            if text.count(isolated_paths) != 1:
+                sys.exit(f"isolated save path anchor not found once in {src}")
+            text = text.replace(isolated_paths, 'if(REXCVAR_GET(ufc_local_test_saves)||!rex::cvar::GetFlagByName("ufc_test_input_file").empty()) {')
+            text = ('#include <rex/cvar.h>\n'
+                    'REXCVAR_DEFINE_BOOL(ufc_local_test_saves, false, "Tests", '
+                    '"Use saves next to the executable independently of input mode");\n' + text)
         # BETA 1.8: in-game quit panel (app/common/ufc_quit_panel.cpp): F4, or Back + Start held 1 s.
         for old, new in QUIT_PATCHES:
             if text.count(old) != 1: sys.exit(f"quit panel anchor not found once in {src}: {old[:40]}")
@@ -276,10 +299,18 @@ def build(name, control):
         main.insert(i12, "-I" + SRC14)
         print(f"[{name}] compile main"); run(main, v["cwd"], f"{out}/main.log")
         link = swap(swap(link, old_ui, f"{out}/ufc_launcher_ui{v['ext']}"), old_main, f"{out}/main{v['ext']}")
+        old_overlay = next(a for a in link if re.search(r"fps_overlay(?:\.cpp)?\.(obj|o)$", a))
+        overlay = swap(load_recipe(v["main"]), src, f"{SRC14}/fps_overlay.cpp")
+        overlay_object = f"{out}/fps_overlay{v['ext']}"
+        overlay[overlay.index("-o") + 1] = overlay_object
+        first_include = next(i for i, arg in enumerate(overlay) if arg.startswith("-I"))
+        overlay.insert(first_include, "-I" + SRC14)
+        print(f"[{name}] compile fps_overlay"); run(overlay, v["cwd"], f"{out}/fps_overlay.log")
+        link = swap(link, old_overlay, overlay_object)
         # P14.4: Cheats tab hook (automatic training reward); P14.5: native memcpy/memset.
         # Both compiled with the main recipe and added to the link.
         # ufc_native_crt (native memcpy/memset) was measured on 28/10: no CPU/FPS gain -> left out.
-        units = ("ufc_training_rewards", "ufc_crash_report", "ufc_adaptive_rate", "ufc_mods_mount", "ufc_caf_fast_build", "ufc_cutscene_60", "ufc_rex_caf_preview_hold", "ufc_rex_announcer_lines", "ufc_rex_first_boot_save", "ufc_rex_position_guard", "ufc_rex_steady_skin_light", "ufc_quit_panel", "ufc_shm_unlink") + (("ufc_reborn_caf_page", "ufc_caf_thumb") if "reborn" in name else ()) + (("ufc_select_preview_diag",) if os.environ.get("UFC_SELECT_PREVIEW_DIAG") == "1" else ()) + (("ufc_measure_faults",) if MEASURE else ()) + (("ufc_pgo_dump",) if os.environ.get("UFC_PGO_GEN") == "1" else ())
+        units = ("ufc_training_rewards", "ufc_crash_report", "ufc_adaptive_rate", "ufc_mods_mount", "ufc_caf_fast_build", "ufc_cutscene_60", "ufc_rex_caf_preview_hold", "ufc_rex_announcer_lines", "ufc_rex_first_boot_save", "ufc_rex_position_guard", "ufc_rex_steady_skin_light", "ufc_quit_panel", "ufc_shm_unlink") + (("ufc_model_guard", "ufc_reborn_caf_page", "ufc_caf_thumb") if "reborn" in name else ()) + (("ufc_select_preview_diag",) if os.environ.get("UFC_SELECT_PREVIEW_DIAG") == "1" else ()) + (("ufc_measure_faults",) if MEASURE else ()) + (("ufc_pgo_dump",) if os.environ.get("UFC_PGO_GEN") == "1" else ())
         if MEASURE and name.startswith("linux"): link.insert(link.index("-o"), "-Wl,--export-dynamic-symbol=mprotect")
         for unit in units:
             unit_source = str(REPO_UNITS[unit]) if unit in REPO_UNITS and REPO_UNITS[unit].is_file() else f"{SRC14}/{unit}.cpp"
@@ -292,19 +323,22 @@ def build(name, control):
         if "reborn" in name:
             lang = load_recipe(v["dir"] + "/ufc_language.command.json")
             lsrc = next(a for a in lang if a.endswith("/ufc_language.cpp"))
-            lang = swap(lang, lsrc, f"{SRC14}/ufc_language.cpp")
+            language_source = Path(__file__).resolve().parents[2] / "app/common/ufc_language.cpp"
+            lang = swap(lang, lsrc, str(language_source if language_source.is_file()
+                                        else Path(SRC14) / language_source.name))
             lang[lang.index("-o") + 1] = f"{out}/ufc_language{v['ext']}"
             first_inc = next(i for i, a in enumerate(lang) if a.startswith("-I"))
             lang.insert(first_inc, "-I" + SRC14)
             print(f"[{name}] compile ufc_language"); run(lang, v["cwd"], f"{out}/ufc_language.log")
             link = swap(link, v["dir"] + "/ufc_language" + v["ext"], f"{out}/ufc_language{v['ext']}")
         else:
-            # BETA 1.8: the Original language unit is rebuilt from the P14 sources too (same source as its P12 object),
-            # so ufc_localization.h fixes reach it (Portuguese tale of the tape: "PEDRA" -> "PESO").
+            # Prefer the maintained Original localization source over the staged P14 copy.
             odir = P12 + "/apps/" + ("windows" if name.startswith("win") else "linux") + "/original"
             lang = load_recipe(odir + "/ufc_language.command.json")
             lsrc = next(a for a in lang if a.endswith("/ufc_language_original.cpp"))
-            lang = swap(lang, lsrc, f"{SRC14}/ufc_language_original.cpp")
+            language_source = Path(__file__).resolve().parents[2] / "app/common/ufc_language_original.cpp"
+            lang = swap(lang, lsrc, str(language_source if language_source.is_file()
+                                        else Path(SRC14) / language_source.name))
             lang[lang.index("-o") + 1] = f"{out}/ufc_language{v['ext']}"
             first_inc = next(i for i, a in enumerate(lang) if a.startswith("-I"))
             lang.insert(first_inc, "-I" + SRC14)

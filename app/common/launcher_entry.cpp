@@ -11,7 +11,13 @@ int Run(const std::vector<std::string>& options,const ufc::fs::path& root){
 #ifdef _WIN32
  play=true;
 #endif
- for(size_t i=0;i<options.size();++i){const auto& a=options[i];if(a=="--play")play=true;else if(a=="--configure")configure=true;else if(a=="--game"&&i+1<options.size())explicit_game=ufc::Path(options[++i]);else if(a=="--help"){std::cout<<"UFC3MONS [--play] [--configure] [--game PASTA]\n";return 0;}else throw std::runtime_error("Opcao desconhecida: "+a);}
+ for(size_t i=0;i<options.size();++i){const auto& a=options[i];if(a=="--play")play=true;else if(a=="--disable-avx2"){/* hidden diagnostic (AVX2.md): logged by the game; 1.9 has a single non-AVX2 mode */
+#ifdef _WIN32
+_putenv_s("UFC_DISABLE_AVX2","1");
+#else
+setenv("UFC_DISABLE_AVX2","1",1);
+#endif
+}else if(a=="--configure")configure=true;else if(a=="--game"&&i+1<options.size())explicit_game=ufc::Path(options[++i]);else if(a=="--help"){std::cout<<"UFC3MONS [--play] [--configure] [--game PASTA]\n";return 0;}else throw std::runtime_error("Opcao desconhecida: "+a);}
  auto installation=explicit_game.empty()?ufc::Discover(bundle):ufc::Installation{ufc::fs::absolute(explicit_game),{}};
  if(ufc::Ready(installation))ufc::Register(installation);
  if(configure||!play||!ufc::Ready(installation)){

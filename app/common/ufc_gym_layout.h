@@ -27,5 +27,13 @@ inline void MountUfcGymLayout(rex::Runtime* runtime,const std::filesystem::path&
   auto* entry=dynamic_cast<rex::filesystem::HostPathEntry*>(runtime->file_system()->ResolvePath("game:\\DAT\\menu\\mad\\EXH_stgref.pac"));
   if(!entry||!entry->OverrideReadOnlyFile(target)){REXLOG_ERROR("[ufc-gym-layout] enabled=true applied=false reason=override_failed preserving=true");return;}
   REXLOG_INFO("[ufc-gym-layout] enabled=true applied=true asset=EXH_stgref.pac source_sha256={} output_sha256={} mod_stageimage_unchanged=true external_thumbnails_unchanged=true stock_widget_bundle=true cache={}",ufc_gym_patch::SourceSha,ufc_gym_patch::TargetSha,ufc::U8(target));
+  // 1.9: the PRIDE arena/referee carousel (EXH_stgref_pr.pac) showed one arena at a time too. In Reborn 1.1 that file
+  // is byte-identical to EXH_stgref.pac (same source hash), so it gets the same restored layout.
+  const auto pride=game/"DAT/menu/mad/EXH_stgref_pr.pac";
+  if(std::filesystem::is_regular_file(pride)&&ufc::Hash(pride)==ufc_gym_patch::SourceSha){
+   auto* pride_entry=dynamic_cast<rex::filesystem::HostPathEntry*>(runtime->file_system()->ResolvePath("game:\\DAT\\menu\\mad\\EXH_stgref_pr.pac"));
+   const bool ok=pride_entry&&pride_entry->OverrideReadOnlyFile(target);
+   REXLOG_INFO("[ufc-gym-layout] asset=EXH_stgref_pr.pac applied={} same_source_as_ufc=true",ok);
+  }else REXLOG_WARN("[ufc-gym-layout] asset=EXH_stgref_pr.pac applied=false reason=unrecognized_source preserving=true");
  }catch(const std::exception& e){REXLOG_ERROR("[ufc-gym-layout] enabled=true applied=false reason=exception preserving=true error={}",e.what());}
 }

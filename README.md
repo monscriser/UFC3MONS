@@ -1,5 +1,7 @@
 # UFC UNDISPUTED 3 - UFC3MONS RECOMP
 
+**English** · [Português (Brasil)](README.pt-BR.md) · [Español](README.es.md)
+
 ### Experimental native PC project for Windows & Linux
 
 > 🎯 **Main focus: the Reborn mod.** UFC3MONS is built first for the community-created **UFC Undisputed Reborn** mod. Reborn gets
@@ -11,8 +13,13 @@ recompilation with ReXGlue, a Vulkan graphics backend and Xenia-derived compatib
 The project combines a configuration launcher, controller and keyboard support, game integration and CPU/GPU improvements.
 Original and Reborn configurations are tracked separately.
 
-> **BETA 1.8 source** fixes created and generic fighters turning black or into static in Career fights and training (all created-fighter speed-ups stay on), runs the pre-fight presentation at a true 60 FPS (smooth camera, no trail on the fighters, clean Career spotlights), fixes the Reborn 1.1 flyweight Exhibition crash on Windows and Linux, and ships as PGO builds. [Read the BETA 1.8 notes](docs/GITHUB-RELEASE-BETA1.8.md).
+> **Version 1.9** fixes the Reborn flyweight crash when fights are played back to back, gives UFC fights UFC shirts and PRIDE
+> fights PRIDE shirts, restores the accents in Reborn's Portuguese menus, fixes the PRIDE arena wheel, adds a System information
+> area with automatic CPU checks and ships as PGO builds. [Read the 1.9 notes](docs/GITHUB-RELEASE-1.9.md).
 > Original game files are not included: you need your own copy of the game.
+
+> **Public updates are paused.** The next public release will be 1.13, once it is complete, validated and approved, with no ETA.
+> Development continues internally on a native Vulkan renderer.
 
 [Explore the source](https://github.com/monscriser/UFC3MONS/tree/main/app) · [Releases](https://github.com/monscriser/UFC3MONS/releases) · [Project website](https://monscriser.github.io/UFC3MONS/) · [Report an issue](https://github.com/monscriser/UFC3MONS/issues)
 
@@ -27,11 +34,11 @@ Original and Reborn configurations are tracked separately.
 | Input | Controller and remappable keyboard |
 | Editions | Reborn folder, Original (XEX or folder) or ISO, read directly without extracting |
 | DLC | Installed from a folder in the launcher; DLC fighters appear on their own select page |
-| Launcher | Portuguese (Brazil), English and Spanish; Add to Steam with artwork |
+| Launcher | Portuguese (Brazil), English and Spanish; Add to Steam with artwork; System information |
 | Cheats | Full Training Rewards (Auto Mode), experimental Maximum Technique Reward (Auto), and Double Money (Career). All are off by default |
 | Game content | Required separately; not distributed here |
 
-## What's new — P7 to BETA 1.7
+## What's new
 
 ```
 P7    ── constant-buffer cache · Career reported smooth on the Ally
@@ -39,24 +46,20 @@ P10   ── memory-protection batching · descriptor reuse · launcher cleanup
 P11   ── shirts for all 342 Reborn models
 P12   ── varied shirts (fixed per model)
 P13   ── fighter entrance memory fix · 1 ms timer for Original
-P14   ── new launcher (PT/EN/ES)
-P14.1 ── Bruce Buffer fixed
-P14.2 ── AMD FSR 1
-P14.3 ── two-thread GPU submission
-P14.4 ── Cheats tab: Full Training Rewards (Auto Mode)
-P14.5 ── Linux page-fault fix (Ally 20 W: 60 FPS) · Double Money cheat
+P14   ── new launcher (PT/EN/ES) · Bruce Buffer fixed · AMD FSR 1 · two-thread GPU submission · cheats
 BETA 1.0 ── no slow motion from 60 to 30 FPS · direct resolve · Mods tab · optional shader pre-compile · texture filtering
-BETA 1.1 ── direct texture loading · VSync option (Mailbox/FIFO/Off, no tearing by default) · RenderDoc overlay fix on Linux
-BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · skip copies before clears · audio loop fix · Original: created fighter's shirt/hat fixed · long-path, thread and Linux priority fixes · video memory log
-BETA 1.3 ── Original edition: scaled copies no longer read back (3×: ~30 → 59 FPS) · no FPS decline during long fights
-BETA 1.4 ── Linux, Original edition: no more multi-second freezes on scene changes (page-protection query 1,000–10,000× faster)
-BETA 1.5 ── less CPU per draw: skip repeated render-target setup · reuse samplers · reuse shader translation and pipeline description (all exact, 0 differences) · Reborn crash fix (jump table cut to 7 of 32 entries)
-BETA 1.6 ── safer GPU readback for created fighters · reuse readback buffers up to 16 MiB · experimental Auto reward for Career techniques
-BETA 1.7 ── 60 FPS walkouts, intros and other 30 FPS scenes at original speed · created fighter on select in ~1.5 s (was 4.4 s) with a texture cache · Reborn CAF tab · announcer no longer waits for Start · new launcher look with a Fixes tab
+BETA 1.1 ── direct texture loading · VSync option · RenderDoc overlay fix on Linux
+BETA 1.2 ── −28% GPU per frame · blood fix at 2× and above · audio loop fix · Original created-fighter shirt/hat fixed
+BETA 1.3 ── Original: scaled copies no longer read back (3×: ~30 → 59 FPS) · no FPS decline during long fights
+BETA 1.4 ── Linux, Original: no more multi-second freezes on scene changes
+BETA 1.5 ── less CPU per draw (all exact, 0 differences) · Reborn crash fix (jump table)
+BETA 1.6 ── safer GPU readback for created fighters · experimental Auto reward for Career techniques
+BETA 1.7 ── 60 FPS walkouts and intros at original speed · created fighter on select in ~1.5 s · Reborn CAF tab
+BETA 1.8 ── no black/static created fighters on AMD · true 60 FPS pre-fight presentation · Reborn flyweight Exhibition crash fix · PGO
+1.9      ── back-to-back flyweight fights · flyweight card title · shirts by organization · PT-BR accents and titles in Reborn · PRIDE arena wheel · System information
 ```
 
-P8 and P9 were investigation builds. The full changelog with measurements is in the
-[P14.5 release](https://github.com/monscriser/UFC3MONS/releases).
+P8 and P9 were investigation builds. Detailed changelogs with measurements are in the [Releases](https://github.com/monscriser/UFC3MONS/releases).
 
 ## Performance
 
@@ -67,113 +70,80 @@ BETA 1.1   5.68 ms  ████████████████████
 BETA 1.2   4.06 ms  ████████████████████          −28 %
 ```
 
-| Change in BETA 1.2 | Measured effect |
-|---|---|
-| Small render targets (≤ 320 px) stay native — blood fix | 2×: +13% FPS, −36% video memory |
-| Skip EDRAM copies into areas the game clears right after | −6.8% GPU time (same build, on vs off) |
-| A1: memory uploads moved before render passes (`ufc_hoist_shared_memory_uploads`) | +8% FPS without a limit (169.7 → 183.4) |
-
-RTX 5060 Ti, same fight replayed, runs alternated in one session. Handhelds were not measured for BETA 1.2.
-
-Every change has a parameter to switch it on or off for tests: see [BETA 1.2 parameters](docs/PARAMETERS-BETA-1.2.md).
+RTX 5060 Ti, same fight replayed, runs alternated in one session. Every change has a parameter to switch it on or off for tests:
+see [BETA 1.2 parameters](docs/PARAMETERS-BETA-1.2.md).
 
 ### ROG Ally Z1 Extreme, Linux, 20 W — Reborn Career fight
-
-```
-FPS during the fight (higher is better, target 60)
-
-P14.4  |████████████████████████████████████████▏           46–50 FPS
-P14.5  |██████████████████████████████████████████████████  60 FPS (locked)
-       0         10        20        30        40        50        60
-```
 
 | Metric (same fight, Ally @ 20 W) | P14.4 | P14.5 |
 |---|---:|---:|
 | Average FPS | 46–50 | **60** |
 | Cost of one write-watch page fault | ~330 µs | **~59 µs** |
 | Time spent in page faults | ~280 ms per second | **61 ms per second** |
-| Game's command-building thread | 461–530 ms/s | **294 ms/s** |
 | GPU clock | swinging 800–2000 MHz | **~1790 MHz, stable** |
 
-**What was wrong:** the emulator protects the memory the game writes to, so it knows when to re-upload it to the GPU.
-On Linux, every resulting page fault read and parsed the whole `/proc/self/maps` file. Windows answers the same question
-with a fast system call, so only Linux was affected. The slow check now runs only in the rare case where it is needed.
-The behavior stays the same: rebuilding without the change gives the previous runtime back, and the check-free path was
-verified on PC and on the Ally.
-
-### Other measured improvements
-
-| Build | Change | Result |
-|---|---|---|
-| P14.3 | GPU submission on a second thread | 1.216 → 0.083 ms per frame to submit; 26,686 submissions checked, 0 differences |
-| P14.2 | AMD FSR 1 (720p → output resolution) | GPU usage 37.7% → 20% in the same scene, with native-like sharpness |
-| P7 | Constant-buffer descriptor cache | Constant-binding stage 4.3% cheaper; 66.9 million comparisons, 0 differences |
-
-Performance depends on the scene, hardware, driver, settings and shader-cache state. Static recompilation alone does not
-guarantee higher performance than an emulator.
+On Linux, every write-watch page fault used to read and parse the whole `/proc/self/maps` file; the slow check now runs only when
+needed. Performance depends on the scene, hardware, driver, settings and shader-cache state. Static recompilation alone does not
+guarantee higher performance than an emulator. Version 1.9 does not add new performance optimizations.
 
 ![Development progress: Ally fight FPS, Original edition FPS at 3×, GPU time and CPU per draw (R8 to BETA 1.5)](media/performance-r9.png)
 
-*Measurements from different sessions and hardware, not a controlled benchmark. BETA 1.0 to 1.2 were not measured on the ROG Ally.*
+*Measurements from different sessions and hardware, not a controlled benchmark.*
 
 ## Features
 
 ### Launcher
-- Tabs: **Home, Video & language, Keyboard & controller, Saves & logs, Cheats**.
+- Tabs: **Home, Settings, Mods, Cheats, Fixes, Logs, Saves, What's new**.
 - Game source: **Reborn folder, Original XEX/folder or ISO** (the ISO is read directly).
 - DLC install from a folder; **Add to Steam** creates a shortcut with artwork.
 - Remappable keyboard; controller support.
+- **System information** (Settings): processor, AVX2 support and execution mode, read only. The CPU is checked before the game starts.
 - Save backup, shader-cache cleanup and log folders one click away. **Write logs** is off by default.
-- Validated optimizations are always on; the old test switches are no longer on screen.
 
 ### Graphics, Timing and Performance
-- Vulkan rendering with project-specific SDK modifications.
-- Optional **AMD FSR 1** upscaling (off by default; not used on 16:10 screens or with black bars).
+- Vulkan rendering with project-specific SDK modifications; optional **AMD FSR 1** upscaling (off by default).
 - Two-thread GPU submission, constant/descriptor caches, register and memory-protection batching.
-- Native-size small render targets (`ufc_draw_resolution_scale_threshold`, 320): blood and decals stay in place at 2× and above (BETA 1.2).
-- No EDRAM copies into areas a depth/stencil or color clear overwrites right after (`ufc_clear_transfer_cutout`, BETA 1.2).
-- Linux page-fault fast path (P14.5).
-- BETA 1.6 validates the game memory used for shader readback and reuses buffers for requests up to 16 MiB.
-- Synchronous shaders and a 60 FPS limit. Console vsync stays enabled: the game simulation advances once per frame.
-- In-game FPS overlay toggled with **F6**.
+- Native-size small render targets: blood and decals stay in place at 2× and above.
+- Linux page-fault fast path; Linux readback tracking that stays cheap in long sessions (1.9).
+- Synchronous shaders and a 60 FPS limit. In-game FPS overlay toggled with **F6**. Quit panel: **F4** or Back + Start for 3 s.
 
 ### Cheats (off by default, work while the game is running)
-- **Full Training Rewards (Auto Mode):** AUTO training in Career gives the best Manual Training grade (4 stars). Tested:
-  same save and drill, 2 stars and +3 Speed off → 4 stars and +5 Speed on, saved to the fighter.
-- **Double Money:** Creds earned from each Career fight count twice, within the game's own maximum. Tested: a fight
-  worth 1,600 Creds paid 3,200, shown and saved.
-- **Maximum reward for learning/improving techniques (Auto, experimental):** The Camp Sessions hook targets the highest
-  grade and 1,000 points for Auto technique sessions. The game handles move XP and level progression. The reward and its
-  persistence after accepting the result still need gameplay confirmation.
+- **Full Training Rewards (Auto Mode):** AUTO training in Career gives the best Manual Training grade (4 stars).
+- **Double Money:** Creds earned from each Career fight count twice, within the game's own maximum.
+- **Maximum reward for learning/improving techniques (Auto, experimental):** targets the highest grade for Auto technique sessions;
+  persistence after accepting the result still needs gameplay confirmation.
 
 ### Reborn
-- Shirts for all **342** fighter models (each model keeps the same shirt).
+- Shirts for all **342** fighter models; UFC fights use UFC or neutral shirts and PRIDE fights PRIDE or neutral shirts (1.9).
+- Accents restored in the Portuguese menus (1.9).
+- Flyweight title on the pre-fight card; category titles in Portuguese on the card and scoreboard when the game is in Portuguese (1.9).
 - Original game files are never modified; compatible copies are created on first start.
 
 ## Original and Reborn Compatibility
 
 | Configuration | Current development status |
 | --- | --- |
-| Reborn | Career and Exhibition playable on Windows and Linux; Career fight at 60 FPS on the ROG Ally at 20 W |
-| Original | Playable from XEX/folder or ISO. The invisible-opponent bug was fixed in R9.1; the 1 ms timer fix was added in P13. Created fighters (CAF) now save their baked skin, shirt and hat correctly (BETA 1.2) |
+| Reborn | Career and Exhibition playable on Windows and Linux; flyweight fights back to back tested on PC (1.9) |
+| Original | Playable from XEX/folder or ISO. Created fighters (CAF) save their baked skin, shirt and hat correctly |
 | Both | DLC supported. Wider gameplay, save, controller and hardware testing is still welcome |
 
 ## Getting Started
 
 ### For Players
 1. Download the Windows zip or the Linux AppImage from [Releases](https://github.com/monscriser/UFC3MONS/releases).
-   - The Windows zip contains only `Launcher-Config.exe`, `UFC3.exe` and `data/`. Each file has a `.sha256` to check it.
+   - The Windows zip contains `Launcher-Config.exe`, `UFC3.exe` and `data/`. Each file has a `.sha256` to check it.
 2. Open the launcher and point it to **your own** game: Reborn folder, Original XEX/folder or ISO.
 3. Optional: install DLC from a folder, pick resolution/FSR 1 and language, or use **Add to Steam**.
 4. Press **PLAY**.
 
-**Requirements:** a Vulkan GPU, and a CPU with SSE4.2 (x86-64-v2). **AVX2 is not required.**
+**Requirements:** a Vulkan GPU and an x86-64 CPU with SSSE3 and SSE4.1 (SSE4.2 for Reborn on Windows). **AVX2 is not required.**
+If the processor lacks a required instruction set, the launcher says so before the game starts.
 
 GitHub's **Download ZIP** button downloads source code, not a playable game. No game data, DLC or saves are included.
 
 ### For Developers
 1. Read [dependencies and build limitations](docs/DEPENDENCIAS.md).
-2. Use `app/common/` for the BETA 1.6 launcher and Career reward changes. Refer to `app/variants/` for the historical platform- and edition-specific snapshots.
+2. Use `app/common/` for the current launcher and integration sources. Refer to `app/variants/` for historical snapshots.
 3. Review `sdk-modified/` and the incremental changes in `patches/`.
 4. Treat `scripts/historical/` as records of the original environment, not portable build commands.
 
@@ -183,38 +153,33 @@ A clean build still requires a compatible SDK, code generated from your own game
 
 | Path | Contents |
 | --- | --- |
-| `app/common/` | Shared integration and launcher snapshots |
+| `app/common/` | Shared integration and launcher sources |
 | `app/variants/` | Platform- and edition-specific integration files |
 | `app/fixes/` | Input/presentation fixes and optional diagnostic samplers |
-| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader. The updated Vulkan renderer is in `beta15/gpu/` |
+| `sdk-modified/` | GPU/runtime modifications, support headers and the readback shader |
 | `patches/` | Incremental changes against previous local snapshots |
-| `scripts/beta12/`, `scripts/beta13/`, `scripts/beta14/` | BETA 1.2/1.3/1.4 patch, build, packaging and measurement scripts (local paths) |
-| `scripts/historical/` | Original build and packaging recipes with local dependencies |
-| `docs/` | Development state, dependencies and publication information |
+| `scripts/` | Patch, build, packaging and measurement scripts (local paths) |
+| `docs/` | Development state, dependencies, release notes and publication information |
 | `LICENSES/` | Included third-party license |
 | `index.html` | Standalone project page for GitHub Pages |
 
 ## Known Limitations
 
 - Below 30 FPS the action still slows down (between 60 and 30 FPS the speed stays normal since BETA 1.0).
-- BETA 1.2 was built and started for Linux in a test environment, but not yet played on real Linux hardware.
-- Some players report a drop to ~5 FPS after a long session on 6 GB GPUs at 1080p (likely video memory). BETA 1.2 uses less video memory and logs it (`[ufc-vram]`).
+- Accented uppercase letters in Reborn's menu font are slightly shorter than the others.
 - Some menus, videos (Bink) and loading screens run at 30 FPS or drop briefly.
-- The fighter entrance can still run at 30 FPS on the Ally.
-- Full Training Rewards and Double Money were tested on Windows. The BETA 1.6 technique reward still needs gameplay validation. The 20 W result was measured on the Ally (Linux).
+- Steam Deck in-fight FPS was not measured for 1.9.
 - External overlays may report the compositor's frame rate; F6 reports the game's own frame counter.
 - Historical recipes reuse local objects and precompiled headers. Portable, reproducible builds are pending.
 - Generated game code and `ufc_offline_memory.h` are deliberately excluded from the sources.
 
 ## Reporting Issues and Contributing
 
-Open an [issue](https://github.com/monscriser/UFC3MONS/issues) and include the build (for example BETA 1.2), Original/Reborn
-edition, operating system, CPU, GPU, driver, scene, game mode, reproduction steps, display settings and relevant logs.
-To get logs, turn on **Write logs** in **Saves & logs**, play, then use **Open all logs**. Screenshots are useful when
-private information is removed.
+Open an [issue](https://github.com/monscriser/UFC3MONS/issues) and include the version (for example 1.9), Original/Reborn edition,
+operating system, CPU, GPU, driver, scene, game mode, reproduction steps, display settings and relevant logs. To get logs, turn on
+**Write logs** in **Logs**, play, then use **Open all logs**. Screenshots are useful when private information is removed.
 
-For comparison tests, use the same scene and settings. Do not upload game files, DLC, generated game code or personal saves
-to public issues.
+Do not upload game files, DLC, generated game code or personal saves to public issues.
 
 ## Credits and Licensing
 

@@ -10,9 +10,46 @@ REXCVAR_DEFINE_INT32(ufc_fps_limit,60,"Display","Guest submission ceiling: 60, 1
 #include <imgui.h>
 
 REXCVAR_DEFINE_BOOL(ufc_show_fps, true, "Display", "Show UFC guest swap FPS");
+REXCVAR_DEFINE_BOOL(ufc_swap_cadence_diagnostics, false, "Tests",
+                    "Log time outside and inside each guest swap in one-second windows");
 namespace {
 std::atomic<uint64_t> swaps{0};
 using Clock = std::chrono::steady_clock;
+using Milliseconds = std::chrono::duration<double, std::milli>;
+
+struct SwapCadence {
+  void Record(Clock::time_point start, Clock::time_point paced,
+              Clock::time_point submitted, Clock::time_point finished) {
+    if (previous_finish != Clock::time_point{}) {
+      const auto gap = start - previous_finish;
+      guest_gap += gap;
+      if (gap > guest_gap_max) guest_gap_max = gap;
+      limiter += paced - start;
+      swap += submitted - paced;
+      capture += finished - submitted;
+      ++frames;
+      const double real_ms = Milliseconds(finished - window_start).count();
+      if (real_ms >= 1000.0) {
+        REXLOG_INFO("[ufc-swap-cadence] frames={} fps={:.2f} outside_swap_ms={:.3f} "
+                    "outside_swap_max_ms={:.3f} limiter_ms={:.3f} vd_swap_ms={:.3f} capture_ms={:.3f}",
+                    frames, frames * 1000.0 / real_ms, Milliseconds(guest_gap).count() / frames,
+                    Milliseconds(guest_gap_max).count(), Milliseconds(limiter).count() / frames,
+                    Milliseconds(swap).count() / frames, Milliseconds(capture).count() / frames);
+        window_start = finished;
+        frames = 0;
+        guest_gap = guest_gap_max = limiter = swap = capture = Clock::duration::zero();
+      }
+    } else {
+      window_start = finished;
+    }
+    previous_finish = finished;
+  }
+
+  Clock::time_point previous_finish{}, window_start{};
+  Clock::duration guest_gap{}, guest_gap_max{}, limiter{}, swap{}, capture{};
+  unsigned frames = 0;
+};
+
 class FpsOverlay final : public rex::ui::ImGuiDialog {
  public:
   explicit FpsOverlay(rex::ui::ImGuiDrawer* drawer) : ImGuiDialog(drawer) {}
@@ -57,6 +94,8 @@ extern void ShadowCaptureTick();
 extern "C" void __real___imp__VdSwap(PPCContext& ctx, uint8_t* base);
 extern "C" void __wrap___imp__VdSwap(PPCContext& ctx, uint8_t* base) {
   static thread_local ufc::FrameLimiter limiter;
+  static const bool trace_cadence = REXCVAR_GET(ufc_swap_cadence_diagnostics);
+  const auto started = trace_cadence ? Clock::now() : Clock::time_point{};
   // Registry reads share the setter mutex; direct cvar storage is a plain int.
   const auto requested_text = rex::cvar::GetFlagByName("ufc_fps_limit");
   const int requested = std::atoi(requested_text.c_str());
@@ -67,9 +106,15 @@ extern "C" void __wrap___imp__VdSwap(PPCContext& ctx, uint8_t* base) {
     previous_cap = cap;
   }
   limiter.Pace(cap);
+  const auto paced = trace_cadence ? Clock::now() : Clock::time_point{};
   __real___imp__VdSwap(ctx, base);
+  const auto submitted = trace_cadence ? Clock::now() : Clock::time_point{};
   swaps.fetch_add(1, std::memory_order_relaxed);
   ShadowCaptureTick();
+  if (trace_cadence) {
+    static thread_local SwapCadence cadence;
+    cadence.Record(started, paced, submitted, Clock::now());
+  }
 }
 std::unique_ptr<rex::ui::ImGuiDialog> CreateUfcFpsOverlay(rex::ui::ImGuiDrawer* drawer) {
   return std::make_unique<FpsOverlay>(drawer);

@@ -1,4 +1,5 @@
 #pragma once
+#include "ufc_cpu_info.h"
 #include "ufc_localization.h"
 #include "ufc_resolution.h"
 #include <atomic>
@@ -64,6 +65,8 @@ class Session{
  void Start(const fs::path& bundle,const Installation& installation,const Settings& settings,bool precompile=false){
   if(Running())throw std::runtime_error("Ja existe uma partida aberta por este launcher.");Wait();Register(installation);settings.Save(installation.game);
   bool original=!installation.iso.empty()||Hash(installation.game/"default.xex")==OriginalSHA;
+  // 1.9 AVX2.md: refuse a CPU below the game executable's instruction set before starting it (the front door has no SSE4 code).
+  {const auto cpu=DetectCpu();const auto missing=MissingCpuRequirement(cpu,original);if(!missing.empty())throw std::runtime_error("Processador incompativel / Incompatible processor: "+cpu.brand+"\n\nFalta / Missing: "+missing+"\n\nO UFC3MONS exige um processador x86-64 com SSSE3 e SSE4.1"+std::string(original?"":" (SSE4.2 no Reborn para Windows)")+". AVX2 nao e necessario.\nUFC3MONS requires an x86-64 processor with SSSE3 and SSE4.1"+std::string(original?"":" (SSE4.2 for Reborn on Windows)")+". AVX2 is not required.");}
   if(!original)PrepareLocalizedNames(installation.game,settings.game_language);
   auto qa_bool=[](const char* key,bool normal){const auto* v=std::getenv(key);return v&&std::string_view(v)=="1"?true:v&&std::string_view(v)=="0"?false:normal;};
   const bool shirt_aliases=!original&&qa_bool("UFC_QA_SHIRT_ALIASES",true);
@@ -130,7 +133,12 @@ class Session{
   args.push_back(std::string("--ufc_async_shaders=")+("false"));
   args.push_back(diagnostics_?"--ufc_shadow_diagnostics=true":"--ufc_shadow_diagnostics=false");
   args.push_back("--ufc_shadow_precise=false");
-  if(performance_diag){args.push_back("--log_max_file_size_mb=16");args.push_back("--log_max_files=8");}
+  if(performance_diag){
+   args.push_back("--log_max_file_size_mb=16");args.push_back("--log_max_files=8");
+   args.push_back("--ufc_swap_cadence_diagnostics=true");
+   args.push_back("--ufc_rate_diagnostics=true");
+   args.push_back("--ufc_cutscene_60_log=true");
+  }
   else if(!diagnostics_){args.push_back("--log_max_file_size_mb=4");args.push_back("--log_max_files=2");}
   if(diagnostics_)args.push_back("--ufc_language_diagnostics=true");
   args.push_back("--user_language="+std::to_string(LanguageIds[std::clamp(settings.game_language,0,5)]));

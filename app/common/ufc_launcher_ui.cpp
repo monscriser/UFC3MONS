@@ -20,6 +20,12 @@
 #include "ufc_shader_seed.h"
 #include "ufc_mods.h"
 #include <rex/filesystem.h>
+#include <rex/cvar.h>
+#include <rex/logging.h>
+
+REXCVAR_DEFINE_BOOL(ufc_shader_seed_on_launch, false, "UFC",
+                    "Merge bundled pipeline descriptions before gameplay starts");
+
 namespace ufc {
 struct FolderResult{std::mutex mutex;std::string chosen;};
 // P14.9 Mods tab: several files can be picked at once.
@@ -55,7 +61,7 @@ fs::path LanguageFile(){return RegistryDirectory()/"config/launcher-language.ini
 // Fonts baked by the app: 0 = 16 px, 1 = 21 px, 2 = 28 px (fallback: scaled 16 px).
 void PushSize(int index){auto& fonts=ImGui::GetIO().Fonts->Fonts;if(index<fonts.Size)ImGui::PushFont(fonts[index],fonts[index]->LegacySize);else ImGui::PushFont(fonts[0],index==1?21.f:index==2?28.f:16.f);}
 ImU32 Col(float r,float g,float b,float a=1){return ImGui::GetColorU32(ImVec4(r,g,b,a));}
-constexpr const char* kDisplayVersion="BETA 1.8";
+constexpr const char* kDisplayVersion="1.9";
 const ImVec4 kRed(.84f,.11f,.16f,1),kRedHover(.93f,.17f,.22f,1),kRedActive(.70f,.08f,.12f,1),kGreen(.20f,.85f,.42f,1),kMuted(.70f,.73f,.78f,1);
 void CheckMark(ImDrawList* draw,ImVec2 c,float r,ImU32 color,float thickness){ImVec2 pts[3]={ImVec2(c.x-r*.45f,c.y+r*.02f),ImVec2(c.x-r*.12f,c.y+r*.36f),ImVec2(c.x+r*.48f,c.y-r*.34f)};draw->AddPolyline(pts,3,color,ImDrawFlags_None,thickness);}
 void FilledCheck(ImDrawList* draw,ImVec2 c,float r){draw->AddCircleFilled(c,r,Col(.13f,.72f,.33f),32);CheckMark(draw,c,r,Col(.04f,.08f,.05f),r*.24f);}
@@ -320,6 +326,19 @@ class Launcher final:public rex::ui::ImGuiDialog{
   }
   EndCard();
  }
+ // 1.9 AVX2.md: read-only system information (no AVX2 switch). Single non-AVX2 build in 1.9 (see AVX2.md audit).
+ void SystemInfoCard(){
+  static const CpuInfo cpu=DetectCpu();
+  BeginCard("SystemInfoCard",ImVec2(0,0));
+  CardTitle(L("Informações do sistema","System information","Información del sistema"),nullptr);
+  ImGui::Text("%s: %s",L("Processador","Processor","Procesador"),cpu.brand.c_str());
+  ImGui::Text("%s: %s",L("Suporte AVX2","AVX2 support","Soporte AVX2"),cpu.avx2_usable()?L("detectado","detected","detectado"):L("não disponível","not available","no disponible"));
+  ImGui::Text("%s: %s",L("Modo de execução","Execution mode","Modo de ejecución"),L("Compatibilidade (sem AVX2)","Compatibility (no AVX2)","Compatibilidad (sin AVX2)"));
+  ImGui::PushTextWrapPos(0);
+  Muted(L("Esta versão usa o mesmo modo em todos os processadores compatíveis. O AVX2 não é necessário.","This version uses the same mode on every compatible processor. AVX2 is not required.","Esta versión usa el mismo modo en todos los procesadores compatibles. AVX2 no es necesario."));
+  ImGui::PopTextWrapPos();
+  EndCard();
+ }
  void Home(){
   auto missing=Missing();
   Hero(ImGui::GetContentRegionAvail().x);
@@ -434,12 +453,14 @@ class Launcher final:public rex::ui::ImGuiDialog{
   ImGui::Spacing();
   struct Item{const char* pt;const char* en;const char* es;};
   static const Item items[]={
-   {"Carreira e treino: lutadores criados e genéricos não ficam mais pretos ou com chuvisco na arena (Steam Deck, ROG Ally e placas AMD). O lutador criado continua montando rápido.","Career and training: created and generic fighters no longer turn black or into static in the arena (Steam Deck, ROG Ally and AMD graphics). Created fighters still build fast.","Carrera y entrenamiento: los luchadores creados y genéricos ya no salen negros o con estática en la arena (Steam Deck, ROG Ally y gráficas AMD). El luchador creado sigue montándose rápido."},
-   {"Apresentação antes da luta a 60 FPS de verdade: câmera fluida, sem rastro duplicando os lutadores, sem manchas nos holofotes da Carreira, boca do Bruce Buffer acompanhando a voz, na velocidade normal.","Pre-fight presentation at a true 60 FPS: smooth camera, no trail doubling the fighters, no blotches on the Career spotlights, Bruce Buffer's mouth in sync with his voice, at normal speed.","Presentación antes de la pelea a 60 FPS reales: cámara fluida, sin estela que duplique a los luchadores, sin manchas en los focos de la Carrera, la boca de Bruce Buffer sincronizada con su voz, a velocidad normal."},
-   {"Textos em português: a Carreira do Reborn não pisca mais entre dois textos nas trocas de menu, e o peso dos lutadores aparece como PESO (não PEDRA).","Portuguese texts: Reborn's Career no longer flickers between two texts on menu changes, and the fighters' weight label reads PESO (not PEDRA).","Textos en portugués: la Carrera de Reborn ya no parpadea entre dos textos al cambiar de menú, y el peso de los luchadores aparece como PESO (no PEDRA)."},
-   {"Painel para sair do jogo: F4 ou Back + Start segurados por 3 segundos.","Quit panel: F4, or Back + Start held for 3 seconds.","Panel para salir del juego: F4 o Back + Start mantenidos 3 segundos."},
-   {"O cache de texturas da versão anterior é descartado automaticamente; não é preciso apagar nada.","The texture cache from the previous version is discarded automatically; nothing needs to be deleted.","La caché de texturas de la versión anterior se descarta automáticamente; no hace falta borrar nada."},
-   {"Reborn 1.1: corrigido o fechamento do jogo ao carregar a Exibição peso-mosca na O2 Arena e em outras arenas (Windows e Linux).","Reborn 1.1: fixed the crash when loading a flyweight Exhibition at the O2 Arena and other arenas (Windows and Linux).","Reborn 1.1: corregido el cierre del juego al cargar una Exhibición de peso mosca en el O2 Arena y otras arenas (Windows y Linux)."},
+   {"Reborn: corrigido o fechamento do jogo ao fazer lutas de peso-mosca seguidas na mesma execução.","Reborn: fixed the game closing when playing flyweight fights back to back in the same session.","Reborn: corregido el cierre del juego al hacer peleas de peso mosca seguidas en la misma sesión."},
+   {"Reborn: lutas do UFC usam camisas do UFC ou neutras, e lutas do PRIDE usam camisas do PRIDE ou neutras.","Reborn: UFC fights use UFC or neutral shirts, and PRIDE fights use PRIDE or neutral shirts.","Reborn: las peleas de UFC usan camisetas de UFC o neutras, y las de PRIDE usan camisetas de PRIDE o neutras."},
+   {"Reborn: o card antes da luta mostra o título de peso-mosca, e em português os títulos de categoria do card e do placar aparecem traduzidos.","Reborn: the pre-fight card shows the flyweight title, and in Portuguese the category titles on the card and scoreboard are translated.","Reborn: la tarjeta previa a la pelea muestra el título de peso mosca y, en portugués, los títulos de categoría de la tarjeta y del marcador aparecen traducidos."},
+   {"Reborn: a roda de arenas do PRIDE mostra a lista completa, como a do UFC.","Reborn: the PRIDE arena wheel shows the full list, like the UFC one.","Reborn: la rueda de arenas de PRIDE muestra la lista completa, como la de UFC."},
+   {"Reborn em português: os acentos voltaram aos menus (SESSÃO, ESTRATÉGIA, NOTÍCIAS, AÇÃO...).","Reborn in Portuguese: accents are back in the menus (SESSÃO, ESTRATÉGIA, NOTÍCIAS, AÇÃO...).","Reborn en portugués: los acentos volvieron a los menús (SESSÃO, ESTRATÉGIA, NOTÍCIAS, AÇÃO...)."},
+   {"Traduções em português: prêmios do ano (Lutador, Luta, Nocaute e Finalização do Ano) e Finalização da Noite corrigidos.","Portuguese translations: yearly awards (Fighter, Fight, Knockout and Submission of the Year) and Submission of the Night fixed.","Traducciones al portugués: premios del año (Luchador, Pelea, Nocaut y Sumisión del Año) y Sumisión de la Noche corregidos."},
+   {"Configurações: nova área Informações do sistema (processador e suporte a AVX2). Processadores sem as instruções necessárias recebem um aviso claro em vez de um fechamento.","Settings: new System information area (processor and AVX2 support). Processors without the required instructions get a clear message instead of a crash.","Ajustes: nueva área Información del sistema (procesador y soporte AVX2). Los procesadores sin las instrucciones necesarias reciben un aviso claro en vez de un cierre."},
+   {"Linux: corrigido o acúmulo no controle das cópias da GPU (readback) que encarecia cada consulta com o tempo.","Linux: fixed the build-up in the GPU copy (readback) tracking that made each lookup more expensive over time.","Linux: corregida la acumulación en el control de copias de la GPU (readback) que encarecía cada consulta con el tiempo."},
   };
 
 
@@ -535,7 +556,19 @@ class Launcher final:public rex::ui::ImGuiDialog{
   SteamButton();ImGui::SameLine(0,12);
   ImGui::BeginDisabled(running||Preparing()||DlcBusy()||!prepared_||!Ready(installation_)||!Missing().empty());
   PushSize(1);
-  if(StyledButton(L("JOGAR","PLAY","JUGAR"),ImVec2(200,46),true))Guard([&]{Prepare();Save();session_.Start(bundle_,installation_,settings_);status_=L("Jogo iniciado.","Game started.","Juego iniciado.");});
+  if(StyledButton(L("JOGAR","PLAY","JUGAR"),ImVec2(200,46),true))Guard([&]{
+   Prepare();
+   Save();
+   if(REXCVAR_GET(ufc_shader_seed_on_launch)){
+    try{
+     const auto seed=MergeShaderSeed(bundle_,installation_.game);
+     REXLOG_INFO("[ufc-shader-seed] found={} format_mismatch={} shaders={} pipelines={}",
+                 seed.seed_found,seed.format_mismatch,seed.shaders,seed.pipelines);
+    }catch(const std::exception& e){REXLOG_WARN("[ufc-shader-seed] merge failed: {}",e.what());}
+   }
+   session_.Start(bundle_,installation_,settings_);
+   status_=L("Jogo iniciado.","Game started.","Juego iniciado.");
+  });
   ImGui::PopFont();ImGui::EndDisabled();
  }
  void SyncLanguage(){
@@ -597,7 +630,7 @@ class Launcher final:public rex::ui::ImGuiDialog{
   ImGui::BeginChild("LauncherBody",ImVec2(content_w,std::max(120.f,io.DisplaySize.y-kTopBar-18-86)),ImGuiChildFlags_None,ImGuiWindowFlags_NoBackground);  // Ally fix: Home scrolls too (its last card was cut in a short window)
   switch(tab_){
    case 0:Home();break;
-   case 1:Video();BeginCard("InputCard",ImVec2(0,0));CardTitle(L("Teclado e controle","Keyboard and controller","Teclado y mando"),nullptr);Keyboard();EndCard();PrecompileCard();break;
+   case 1:Video();BeginCard("InputCard",ImVec2(0,0));CardTitle(L("Teclado e controle","Keyboard and controller","Teclado y mando"),nullptr);Keyboard();EndCard();PrecompileCard();SystemInfoCard();break;
    case 4:Cheats();break;
    case 5:Mods();break;
    case 6:Registro();break;
